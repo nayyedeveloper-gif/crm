@@ -4,6 +4,7 @@ import com.salecrm.branch.entity.Branch;
 import com.salecrm.branch.repository.BranchRepository;
 import com.salecrm.common.exception.ForbiddenBranchAccessException;
 import com.salecrm.common.exception.ResourceNotFoundException;
+import com.salecrm.sales.dto.SalesBranchOption;
 import com.salecrm.sales.dto.SalesStatusResponse;
 import com.salecrm.sales.dto.SalesTargetSheetResponse;
 import com.salecrm.sales.dto.SalesTransactionCreateRequest;
@@ -118,6 +119,40 @@ public class SalesService {
                 transactionRepository.countAll(),
                 transactionRepository.findLatestSaleDate().orElse(null),
                 transactionRepository.findLastUpdated().orElse(null)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<SalesBranchOption> listBranchOptions() {
+        UserPrincipal user = SecurityUtils.requireCurrentUser();
+        List<Branch> branches;
+        if (user.isCrossBranch()) {
+            branches = branchRepository.findAllByActiveTrueOrderByCodeAsc();
+        } else {
+            Long branchId = user.getBranchId();
+            if (branchId == null) {
+                throw new ForbiddenBranchAccessException();
+            }
+            Branch branch = branchRepository.findById(branchId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Branch", branchId));
+            branches = List.of(branch);
+        }
+
+        return branches.stream()
+                .map(this::toBranchOption)
+                .toList();
+    }
+
+    private SalesBranchOption toBranchOption(Branch branch) {
+        List<String> labels = SalesBranchMapper.salesBranchNames(branch);
+        String salesLabel = labels.isEmpty()
+                ? (branch.getName() != null ? branch.getName().trim() : branch.getCode())
+                : labels.getFirst();
+        return new SalesBranchOption(
+                branch.getId(),
+                branch.getCode(),
+                branch.getName(),
+                salesLabel
         );
     }
 

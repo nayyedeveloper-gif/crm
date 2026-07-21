@@ -348,6 +348,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       label: 'Detail',
       match: (p: string) => p.startsWith('/sales/detail'),
     },
+    {
+      href: '/sales/data',
+      label: 'Sales Data',
+      match: (p: string) => p.startsWith('/sales/data'),
+    },
   ];
 
   type MobileTab = {
@@ -446,6 +451,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/sales/cm')) return 'Sales — CM View';
     if (pathname.startsWith('/sales/crm')) return 'Sales — CRM';
     if (pathname.startsWith('/sales/detail')) return 'Sales — Detail';
+    if (pathname.startsWith('/sales/data')) return 'Sales — Data';
     if (pathname.startsWith('/sales')) return 'Sales';
     if (pathname.startsWith('/dashboard')) return 'Dashboard';
     if (pathname.startsWith('/performance')) return 'Performance';
@@ -458,7 +464,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/settings/branches')) return 'Branches';
     if (pathname.startsWith('/settings/permissions')) return 'Permissions';
     if (pathname.startsWith('/settings/backup')) return 'Backup';
-    if (pathname.startsWith('/settings/sales-data')) return 'Sales Data';
     if (pathname.startsWith('/settings/change-logs')) return 'Change Logs';
     if (pathname.startsWith('/settings/system-logs')) return 'System Logs';
     if (pathname.startsWith('/settings/general')) return 'General';

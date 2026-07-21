@@ -90,6 +90,7 @@ export function isPathAllowed(pathname: string, levels: Levels): boolean {
   }
   if (pathname.startsWith('/crm-history')) return can(CRM_PERMISSION_KEYS.crmView);
   if (pathname.startsWith('/showcase')) return can(CRM_PERMISSION_KEYS.showcase);
+  if (pathname.startsWith('/sales/data')) return can(CRM_PERMISSION_KEYS.sales);
   if (pathname.startsWith('/sales')) return can(CRM_PERMISSION_KEYS.sales);
   if (pathname.startsWith('/dashboard')) return can(CRM_PERMISSION_KEYS.dashboard);
   if (pathname.startsWith('/performance')) return can(CRM_PERMISSION_KEYS.performance);

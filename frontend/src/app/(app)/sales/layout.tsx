@@ -17,8 +17,8 @@ function viewFromPath(pathname: string): SalesView {
  */
 export default function SalesLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // Index redirect page has no embed — skip
-  if (pathname === '/sales') {
+  // Index redirect and Sales Data admin page have no embed — skip
+  if (pathname === '/sales' || pathname.startsWith('/sales/data')) {
     return <>{children}</>;
   }
   return <SalesEmbed view={viewFromPath(pathname)} />;

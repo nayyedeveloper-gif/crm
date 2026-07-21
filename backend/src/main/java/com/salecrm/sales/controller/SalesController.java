@@ -1,6 +1,7 @@
 package com.salecrm.sales.controller;
 
 import com.salecrm.common.web.ApiResponse;
+import com.salecrm.sales.dto.SalesBranchOption;
 import com.salecrm.sales.dto.SalesImportResult;
 import com.salecrm.sales.dto.SalesStatusResponse;
 import com.salecrm.sales.dto.SalesTargetSheetResponse;
@@ -40,7 +41,7 @@ public class SalesController {
     }
 
     @PostMapping("/transactions")
-    @PreAuthorize("@perm.can('SALES_IMPORT')")
+    @PreAuthorize("@perm.can('SALES_VIEW')")
     public ApiResponse<Map<String, Object>> createTransaction(
             @RequestBody SalesTransactionCreateRequest request
     ) {
@@ -59,6 +60,12 @@ public class SalesController {
     @PreAuthorize("@perm.can('SALES_VIEW')")
     public ApiResponse<SalesStatusResponse> status() {
         return ApiResponse.ok(salesService.status());
+    }
+
+    @GetMapping("/branches")
+    @PreAuthorize("@perm.can('SALES_VIEW')")
+    public ApiResponse<List<SalesBranchOption>> branches() {
+        return ApiResponse.ok(salesService.listBranchOptions());
     }
 
     @PostMapping(value = "/import/transactions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

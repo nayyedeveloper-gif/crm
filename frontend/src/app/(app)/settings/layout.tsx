@@ -15,14 +15,12 @@ import {
   Activity,
   UserCircle,
   Store,
-  BarChart3,
 } from 'lucide-react';
 
 const NAV = [
   { href: '/settings/profile', label: 'Profile & Account', short: 'Profile', icon: UserCircle, permission: null },
   { href: '/settings/appearance', label: 'Appearance', short: 'Theme', icon: Palette, permission: CRM_PERMISSION_KEYS.settingsAppearance },
   { href: '/settings/branches', label: 'Branches / Shops', short: 'Shops', icon: Store, permission: 'BRANCHES_MANAGE' },
-  { href: '/settings/sales-data', label: 'Sales Data', short: 'Sales', icon: BarChart3, permission: 'SALES_IMPORT' },
   { href: '/settings/users', label: 'Users', short: 'Users', icon: Users, permission: 'USERS_MANAGE' },
   { href: '/settings/permissions', label: 'Permission & Access', short: 'Access', icon: ShieldCheck, permission: 'PERMISSIONS_MANAGE' },
   { href: '/settings/backup', label: 'Backup', short: 'Backup', icon: DatabaseBackup, permission: 'BACKUP_MANAGE' },
