@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+ --color-primary: #1677ff;
+ --color-primary-foreground: #ffffff;
+}
+
+@layer base {
+ html,
+ body,
+ #root {
+ background-color: #f5f5f5;
+ color: #262626;
+ }
+
+ * {
+ -webkit-tap-highlight-color: transparent;
+ }
+
+ *:focus {
+ outline: none !important;
+ box-shadow: none !important;
+ }
+
+  .ios-card {
+    outline: none !important;
+    border: 1px solid #e8e8e8 !important;
+    border-radius: 0.75rem;
+    background: #ffffff;
+    box-shadow: none;
+  }
+
+ .recharts-wrapper,
+ .recharts-surface,
+ .recharts-container,
+ .recharts-legend-wrapper,
+ .recharts-tooltip-wrapper {
+ outline: none !important;
+ border: none !important;
+ }
+
+ svg {
+ outline: none !important;
+ border: none !important;
+ }
+}
+
+@layer components {
+ .update-marquee {
+ overflow: hidden;
+ -webkit-mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+ mask-image: linear-gradient(to right, transparent, black 6%, black 94%, transparent);
+ }
+
+ .update-marquee__track {
+ display: flex;
+ width: max-content;
+ animation: update-marquee-scroll 22s linear infinite;
+ }
+
+ .update-marquee__track:hover {
+ animation-play-state: paused;
+ }
+
+ .update-marquee__item {
+ flex-shrink: 0;
+ display: inline-flex;
+ align-items: center;
+ gap: 0.625rem;
+ padding-right: 4rem;
+ white-space: nowrap;
+ font-size: 0.9375rem;
+ font-weight: 700;
+ color: white;
+ }
+
+ @keyframes update-marquee-scroll {
+ from {
+ transform: translateX(0);
+ }
+ to {
+ transform: translateX(-50%);
+ }
+ }
+
+ /* Status pill badges */
+ .status-pill {
+ display: inline-flex;
+ align-items: center;
+ gap: 0.5rem;
+ padding: 0.25rem 0.75rem;
+ border-radius: 9999px;
+ font-size: 0.6875rem;
+ font-weight: 700;
+ line-height: 1;
+ white-space: nowrap;
+ }
+
+ .status-pill__dot {
+ position: relative;
+ display: inline-flex;
+ width: 0.5rem;
+ height: 0.5rem;
+ flex-shrink: 0;
+ }
+
+ /* Center solid dot */
+ .status-pill__dot::after {
+ content:'';
+ position: absolute;
+ inset: 0;
+ border-radius: 9999px;
+ z-index: 2;
+ }
+
+ /* Ripple wave ring */
+ .status-pill__dot::before {
+ content:'';
+ position: absolute;
+ inset: 0;
+ border-radius: 9999px;
+ z-index: 1;
+ opacity: 0;
+ }
+
+ .status-pill__dot--pulse::before {
+ animation: status-pill-ripple 1.8s ease-out infinite;
+ }
+
+ @keyframes status-pill-ripple {
+ 0% {
+ transform: scale(1);
+ opacity: 0.6;
+ }
+ 100% {
+ transform: scale(4);
+ opacity: 0;
+ }
+ }
+
+ /* Variants */
+ .status-pill--good {
+ background-color: #dcfce7;
+ color: #166534;
+ }
+
+ .status-pill--good .status-pill__dot::after {
+ background-color: #22c55e;
+ }
+
+ .status-pill--warning {
+ background-color: #fef3c7;
+ color: #92400e;
+ }
+
+ .status-pill--warning .status-pill__dot::after {
+ background-color: #f59e0b;
+ }
+
+ .status-pill--warning .status-pill__dot--pulse::before {
+ background-color: #f59e0b;
+ }
+
+ .status-pill--critical {
+ background-color: #fee2e2;
+ color: #991b1b;
+ }
+
+ .status-pill--critical .status-pill__dot::after {
+ background-color: #ef4444;
+ }
+
+ .status-pill--critical .status-pill__dot--pulse::before {
+ background-color: #ef4444;
+ }
+}

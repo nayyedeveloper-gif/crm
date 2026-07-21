@@ -1,0 +1,33 @@
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+**/shared/
+backend/data/
+
+# Java
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Node
+**/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+sales/dist/
+
+# Built sales embed (rebuilt by npm run build:sales)
+frontend/public/sales-app/
+
+# Local import scratch
+tmp/
+
+# Logs
+*.log
+logs/

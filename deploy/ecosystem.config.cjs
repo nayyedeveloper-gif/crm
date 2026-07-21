@@ -1,0 +1,37 @@
+module.exports = {
+  apps: [
+    {
+      name: 'ecommerce-api',
+      cwd: '/var/www/ecommerce/backend',
+      script: '/var/www/ecommerce/deploy/start-backend.sh',
+      interpreter: 'bash',
+      autorestart: true,
+      max_restarts: 20,
+      min_uptime: '10s',
+      time: true,
+      out_file: '/var/www/ecommerce/logs/api-out.log',
+      error_file: '/var/www/ecommerce/logs/api-err.log',
+      merge_logs: true,
+    },
+    {
+      name: 'ecommerce-web',
+      cwd: '/var/www/ecommerce/frontend',
+      script: 'node_modules/next/dist/bin/next',
+      args: 'start -H 127.0.0.1 -p 3002',
+      env: {
+        NODE_ENV: 'production',
+        PORT: '3002',
+        HOSTNAME: '127.0.0.1',
+        INTERNAL_API_URL: 'http://127.0.0.1:8090/api',
+        NEXT_PUBLIC_API_URL: '/api',
+      },
+      autorestart: true,
+      max_restarts: 20,
+      min_uptime: '10s',
+      time: true,
+      out_file: '/var/www/ecommerce/logs/web-out.log',
+      error_file: '/var/www/ecommerce/logs/web-err.log',
+      merge_logs: true,
+    },
+  ],
+};

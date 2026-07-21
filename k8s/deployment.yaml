@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sale-crm
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sale-crm-backend
+  namespace: sale-crm
+  labels:
+    app: sale-crm-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sale-crm-backend
+  template:
+    metadata:
+      labels:
+        app: sale-crm-backend
+    spec:
+      containers:
+        - name: backend
+          image: sale-crm-backend:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: sale-crm-db-secret
+                  key: url
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sale-crm-db-secret
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sale-crm-db-secret
+                  key: password
+            - name: REDIS_HOST
+              value: sale-crm-redis
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: sale-crm-kafka:9092
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: sale-crm-jwt-secret
+                  key: secret
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sale-crm-backend
+  namespace: sale-crm
+spec:
+  selector:
+    app: sale-crm-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sale-crm-frontend
+  namespace: sale-crm
+  labels:
+    app: sale-crm-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sale-crm-frontend
+  template:
+    metadata:
+      labels:
+        app: sale-crm-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: sale-crm-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: http://sale-crm-backend:8080/api
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sale-crm-frontend
+  namespace: sale-crm
+spec:
+  selector:
+    app: sale-crm-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sale-crm-ingress
+  namespace: sale-crm
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: sale-crm.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: sale-crm-backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sale-crm-frontend
+                port:
+                  number: 3000

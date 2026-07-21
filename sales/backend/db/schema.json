@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "29 Jewellery Sale Dashboard — Database Structure",
+  "description": "Complete database schema definition for the Sale Dashboard CRM system (SQLite)",
+  "version": "1.0.0",
+  "database": {
+    "engine": "SQLite",
+    "driver": "better-sqlite3",
+    "pragma": {
+      "journal_mode": "WAL",
+      "foreign_keys": "ON"
+    },
+    "file_path": "./data/dashboard.db"
+  },
+  "tables": {
+    "follow_ups": {
+      "description": "Customer interaction records (calls, visits, messages)",
+      "origin": "Migrated from localStorage key 'crmFollowUps'",
+      "columns": {
+        "id": {
+          "type": "TEXT",
+          "primary_key": true,
+          "description": "UUID-like: {timestamp}-{random hex}",
+          "example": "1784545610009-6a6ad1e6"
+        },
+        "customer_key": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Phone number or buyer name (unique customer identifier)",
+          "example": "09-123-456-789"
+        },
+        "customer_name": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Customer display name",
+          "example": "U Mya"
+        },
+        "contact_date": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO date: YYYY-MM-DD",
+          "example": "2025-07-20"
+        },
+        "interaction_type": {
+          "type": "TEXT",
+          "nullable": false,
+          "default": "Call",
+          "enum": ["Call", "SMS", "Viber", "Visit", "Other"],
+          "description": "Type of interaction"
+        },
+        "notes": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Free-text interaction notes"
+        },
+        "status": {
+          "type": "TEXT",
+          "nullable": false,
+          "default": "Pending",
+          "enum": ["Pending", "Interested", "Converted", "Lost"],
+          "description": "Follow-up status"
+        },
+        "interest_level": {
+          "type": "TEXT",
+          "nullable": false,
+          "default": "Medium",
+          "enum": ["Low", "Medium", "High"],
+          "description": "Customer interest level"
+        },
+        "next_action_date": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "ISO date for follow-up scheduling",
+          "example": "2025-07-25"
+        },
+        "photo": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Base64-encoded JPEG/PNG image"
+        },
+        "audio": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Base64-encoded audio file"
+        },
+        "created_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp",
+          "example": "2025-07-20T10:30:00.000Z"
+        },
+        "updated_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp",
+          "example": "2025-07-20T10:30:00.000Z"
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_follow_ups_customer",
+          "columns": ["customer_key"]
+        },
+        {
+          "name": "idx_follow_ups_created",
+          "columns": ["created_at"]
+        },
+        {
+          "name": "idx_follow_ups_status",
+          "columns": ["status"]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_follow_ups_updated_at",
+          "event": "AFTER UPDATE",
+          "action": "SET updated_at = datetime('now')"
+        }
+      ]
+    },
+    "customer_dobs": {
+      "description": "Customer date of birth records",
+      "origin": "Migrated from localStorage key 'crmDobs'",
+      "columns": {
+        "customer_key": {
+          "type": "TEXT",
+          "primary_key": true,
+          "description": "Phone number or buyer name",
+          "example": "09-123-456-789"
+        },
+        "dob": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO date: YYYY-MM-DD",
+          "example": "1990-05-15"
+        },
+        "updated_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp"
+        }
+      },
+      "indexes": []
+    },
+    "redemptions": {
+      "description": "Birthday gift redemption records (one per customer per year)",
+      "origin": "Migrated from localStorage key 'crmRedemptionHistory'",
+      "columns": {
+        "id": {
+          "type": "TEXT",
+          "primary_key": true,
+          "description": "UUID-like: {timestamp}-{random hex}"
+        },
+        "customer_key": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Phone number or buyer name"
+        },
+        "year": {
+          "type": "INTEGER",
+          "nullable": false,
+          "description": "Redemption year",
+          "example": 2025
+        },
+        "gift_description": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Description of gift given",
+          "example": "Silver Pendant"
+        },
+        "interaction_date": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO date: YYYY-MM-DD"
+        },
+        "staff_name": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Staff who handled the redemption"
+        },
+        "photo": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Base64-encoded JPEG/PNG (proof photo)"
+        },
+        "notes": {
+          "type": "TEXT",
+          "nullable": true,
+          "default": "",
+          "description": "Additional notes"
+        },
+        "created_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp"
+        },
+        "updated_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp"
+        }
+      },
+      "constraints": {
+        "unique": {
+          "name": "unique_customer_year",
+          "columns": ["customer_key", "year"],
+          "description": "One redemption per customer per year"
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_redemptions_customer",
+          "columns": ["customer_key"]
+        },
+        {
+          "name": "idx_redemptions_year",
+          "columns": ["year DESC"]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_redemptions_updated_at",
+          "event": "AFTER UPDATE",
+          "action": "SET updated_at = datetime('now')"
+        }
+      ]
+    },
+    "auth_tokens": {
+      "description": "Session token storage for authentication",
+      "columns": {
+        "token": {
+          "type": "TEXT",
+          "primary_key": true,
+          "description": "64-char hex token"
+        },
+        "username": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Authenticated username"
+        },
+        "created_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp"
+        },
+        "expires_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp (24h expiry)"
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_auth_tokens_expires",
+          "columns": ["expires_at"]
+        }
+      ]
+    },
+    "sync_log": {
+      "description": "Google Sheets sync history for debugging/auditing",
+      "columns": {
+        "id": {
+          "type": "INTEGER",
+          "primary_key": true,
+          "autoincrement": true
+        },
+        "source": {
+          "type": "TEXT",
+          "nullable": false,
+          "enum": ["sales", "targets"],
+          "description": "Which sheet was synced"
+        },
+        "row_count": {
+          "type": "INTEGER",
+          "nullable": true,
+          "description": "Number of rows fetched"
+        },
+        "status": {
+          "type": "TEXT",
+          "nullable": false,
+          "enum": ["success", "error"]
+        },
+        "error": {
+          "type": "TEXT",
+          "nullable": true,
+          "description": "Error message if failed"
+        },
+        "synced_at": {
+          "type": "TEXT",
+          "nullable": false,
+          "description": "ISO 8601 timestamp"
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_sync_log_synced",
+          "columns": ["synced_at DESC"]
+        }
+      ],
+      "triggers": [
+        {
+          "name": "trg_sync_log_insert",
+          "event": "AFTER INSERT WHEN status = 'error'",
+          "action": "Keep only last 100 error logs"
+        }
+      ]
+    }
+  },
+  "views": {
+    "customers_with_upcoming_birthdays": {
+      "description": "Customers with DOBs in the current month, ordered by day",
+      "columns": ["customer_key", "dob", "dob_month", "dob_day"]
+    },
+    "current_year_redemptions": {
+      "description": "All redemptions for the current calendar year",
+      "columns": ["id", "customer_key", "year", "gift_description", "interaction_date", "staff_name", "photo", "notes", "created_at", "updated_at"]
+    },
+    "customer_crm_summary": {
+      "description": "Aggregated CRM data per customer (DOBs + follow-up counts + redemption counts)",
+      "columns": ["customer_key", "dob", "follow_up_count", "follow_up_statuses", "total_redemptions", "current_year_redemptions"]
+    }
+  },
+  "relationships": {
+    "follow_ups → customer_dobs": {
+      "type": "logical (no FK constraint)",
+      "join": "follow_ups.customer_key = customer_dobs.customer_key",
+      "description": "A customer may have multiple follow-ups and one DOB"
+    },
+    "redemptions → customer_dobs": {
+      "type": "logical (no FK constraint)",
+      "join": "redemptions.customer_key = customer_dobs.customer_key",
+      "description": "A customer may have multiple redemptions (one per year) and one DOB"
+    }
+  },
+  "migration": {
+    "description": "Data migration from frontend localStorage to SQLite",
+    "source_keys": {
+      "crmFollowUps": "→ follow_ups table",
+      "crmDobs": "→ customer_dobs table",
+      "crmRedemptionHistory": "→ redemptions table",
+      "crmBirthdayRedeemed": "→ derived from redemptions (current year exists)",
+      "crmRedemptionDetails": "→ redemptions table (legacy single-record format, auto-migrated)"
+    },
+    "api_endpoint": "POST /api/crm/import",
+    "export_endpoint": "GET /api/crm/export"
+  }
+}
