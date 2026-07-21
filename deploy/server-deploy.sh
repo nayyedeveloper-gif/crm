@@ -17,6 +17,12 @@ mvn -q -DskipTests package
 cp -f target/sale-crm-backend.jar "$APP_ROOT/backend/sale-crm-backend.jar"
 cd "$APP_ROOT"
 
+echo "==> Build sales embed"
+cd "$APP_ROOT/sales"
+if [[ -f package-lock.json ]]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi
+npm run build
+cd "$APP_ROOT"
+
 echo "==> Build frontend + sales embed"
 cd frontend
 if [[ -f package-lock.json ]]; then npm ci; else npm install; fi
