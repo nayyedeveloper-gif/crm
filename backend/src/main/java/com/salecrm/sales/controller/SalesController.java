@@ -4,6 +4,7 @@ import com.salecrm.common.web.ApiResponse;
 import com.salecrm.sales.dto.SalesImportResult;
 import com.salecrm.sales.dto.SalesStatusResponse;
 import com.salecrm.sales.dto.SalesTargetSheetResponse;
+import com.salecrm.sales.dto.SalesTransactionCreateRequest;
 import com.salecrm.sales.service.SalesExportService;
 import com.salecrm.sales.service.SalesImportService;
 import com.salecrm.sales.service.SalesService;
@@ -36,6 +37,14 @@ public class SalesController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         return ApiResponse.ok(salesService.listTransactions(from, to));
+    }
+
+    @PostMapping("/transactions")
+    @PreAuthorize("@perm.can('SALES_IMPORT')")
+    public ApiResponse<Map<String, Object>> createTransaction(
+            @RequestBody SalesTransactionCreateRequest request
+    ) {
+        return ApiResponse.ok(salesService.createTransaction(request), "Created");
     }
 
     @GetMapping("/targets")

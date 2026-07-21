@@ -35,6 +35,20 @@ export async function fetchSalesTransactions(): Promise<Record<string, unknown>[
   });
   return parseApi(response);
 }
+ 
+export async function fetchSalesTransactionsByRange(params: {
+  from?: string;
+  to?: string;
+}): Promise<Record<string, unknown>[]> {
+  const query = new URLSearchParams();
+  if (params.from) query.set('from', params.from);
+  if (params.to) query.set('to', params.to);
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const response = await fetch(`${API_BASE}/sales/transactions${suffix}`, {
+    headers: authHeaders(),
+  });
+  return parseApi(response);
+}
 
 export async function fetchSalesTargets(month?: string): Promise<TargetSheetData> {
   const query = month ? `?month=${encodeURIComponent(month)}` : '';

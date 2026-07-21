@@ -6,6 +6,7 @@ import com.salecrm.common.exception.ForbiddenBranchAccessException;
 import com.salecrm.common.exception.ResourceNotFoundException;
 import com.salecrm.sales.dto.SalesStatusResponse;
 import com.salecrm.sales.dto.SalesTargetSheetResponse;
+import com.salecrm.sales.dto.SalesTransactionCreateRequest;
 import com.salecrm.sales.dto.SalesTransactionFilter;
 import com.salecrm.sales.entity.SalesMonthlyTarget;
 import com.salecrm.sales.entity.SalesTransaction;
@@ -43,6 +44,40 @@ public class SalesService {
         return transactionRepository.findAll(spec).stream()
                 .map(SalesRowMapper::toDataRow)
                 .toList();
+    }
+
+    @Transactional
+    public Map<String, Object> createTransaction(SalesTransactionCreateRequest request) {
+        UserPrincipal user = SecurityUtils.requireCurrentUser();
+        if (!user.isCrossBranch()) {
+            List<String> allowed = resolveBranchNames();
+            if (allowed != null && !allowed.contains(request.branchName())) {
+                throw new ForbiddenBranchAccessException();
+            }
+        }
+
+        SalesTransaction entity = SalesTransaction.builder()
+                .saleDate(request.saleDate())
+                .branchName(StringUtils.hasText(request.branchName()) ? request.branchName().trim() : "Unknown")
+                .reason(trim(request.reason()))
+                .salesStaff(trim(request.salesStaff()))
+                .buyerName(trim(request.buyerName()))
+                .contactNumber(trim(request.contactNumber()))
+                .township(trim(request.township()))
+                .region(trim(request.region()))
+                .customerType(trim(request.customerType()))
+                .qty(request.qty())
+                .gram(request.gram())
+                .amount(request.amount())
+                .itemCategory(trim(request.itemCategory()))
+                .itemMainGroup(trim(request.itemMainGroup()))
+                .itemsCode(trim(request.itemsCode()))
+                .purity(trim(request.purity()))
+                .specialEvent(trim(request.specialEvent()))
+                .build();
+
+        SalesTransaction saved = transactionRepository.save(entity);
+        return SalesRowMapper.toDataRow(saved);
     }
 
     @Transactional(readOnly = true)
@@ -98,6 +133,13 @@ public class SalesService {
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Branch", branchId));
         return SalesBranchMapper.salesBranchNames(branch);
+    }
+
+    private static String trim(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private static Map<String, Object> toTargetShopMap(SalesMonthlyTarget row) {

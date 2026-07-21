@@ -4,7 +4,7 @@ import { Loader2, Settings, X, LayoutDashboard, Users, BarChart3, Download, Laye
 import { DataRow } from'./types';
 import { branchFilterShowsAll, filterRowsByBranches, getExtractedReason, parseSafeDate } from'./utils';
 import { TargetSheetData } from'./targetSheet';
-import { fetchSalesStatus, fetchSalesTargets, fetchSalesTransactions, hasCrmAccessToken } from'./api';
+import { fetchSalesStatus, fetchSalesTargets, fetchSalesTransactionsByRange, hasCrmAccessToken } from'./api';
 import OverviewView from'./components/OverviewView';
 import MultiSelect from'./components/MultiSelect';
 
@@ -18,6 +18,21 @@ const CRM_LOGIN_PATH ='/login';
 
 type SalesTab ='overview' |'detail' |'staff' |'cm' |'chairman' |'crm';
 const SALES_TABS: SalesTab[] = ['overview','chairman','staff','cm','crm','detail'];
+
+const MONTH_INDEX: Record<string, number> = {
+ January: 0,
+ February: 1,
+ March: 2,
+ April: 3,
+ May: 4,
+ June: 5,
+ July: 6,
+ August: 7,
+ September: 8,
+ October: 9,
+ November: 10,
+ December: 11,
+};
 
 function readEmbedMode(): boolean {
  if (typeof window ==='undefined') return false;
@@ -291,10 +306,29 @@ export default function App() {
  setError(null);
 
  try {
- const [rows, status] = await Promise.all([
- fetchSalesTransactions(),
- fetchSalesStatus().catch(() => null),
- ]);
+ const status = await fetchSalesStatus().catch(() => null);
+ const latestBase = status?.latestSaleDate
+ ? new Date(status.latestSaleDate)
+ : new Date();
+
+ let from: string | undefined;
+ let to: string | undefined;
+
+ if (startDate || endDate) {
+ from = startDate || undefined;
+ to = endDate || undefined;
+ } else if (selectedMonth !== 'All') {
+ const monthIdx = MONTH_INDEX[selectedMonth];
+ if (monthIdx != null) {
+ const year = latestBase.getFullYear();
+ const start = new Date(year, monthIdx, 1);
+ const end = new Date(year, monthIdx + 1, 0);
+ from = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+ to = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+ }
+ }
+
+ const rows = await fetchSalesTransactionsByRange({ from, to });
 
  const validData = rows as DataRow[];
  if (validData.length === 0) {
@@ -333,7 +367,7 @@ export default function App() {
  loadTargetSheet();
  }, highPerformanceMode ? 300000 : 180000); // 5 min in high perf, 3 min normal
  return () => clearInterval(interval);
- }, [isAuthenticated, highPerformanceMode, selectedMonth]);
+ }, [isAuthenticated, highPerformanceMode, selectedMonth, startDate, endDate]);
 
  const handleLoginRedirect = () => {
  window.location.href = CRM_LOGIN_PATH;

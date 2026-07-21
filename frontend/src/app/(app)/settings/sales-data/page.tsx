@@ -7,7 +7,7 @@ import type { ApiResponse } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Download, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { Download, Loader2, RefreshCw } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
 
 type SalesStatus = {
@@ -22,6 +22,26 @@ type ImportResult = {
   message: string;
 };
 
+type SalesCreateRequest = {
+  saleDate: string;
+  branchName: string;
+  reason: string;
+  salesStaff: string;
+  buyerName: string;
+  contactNumber: string;
+  township: string;
+  region: string;
+  customerType: string;
+  qty: string;
+  gram: string;
+  amount: string;
+  itemCategory: string;
+  itemMainGroup: string;
+  itemsCode: string;
+  purity: string;
+  specialEvent: string;
+};
+
 export default function SalesDataSettingsPage() {
   const canImport = usePermissionStore((s) => s.can('SALES_IMPORT'));
   const [status, setStatus] = useState<SalesStatus | null>(null);
@@ -32,6 +52,26 @@ export default function SalesDataSettingsPage() {
   const [targetMonth, setTargetMonth] = useState(
     () => new Date().toLocaleString('en-US', { month: 'long' })
   );
+  const [creating, setCreating] = useState(false);
+  const [record, setRecord] = useState<SalesCreateRequest>({
+    saleDate: new Date().toISOString().slice(0, 10),
+    branchName: 'Shop 1',
+    reason: 'G Sale',
+    salesStaff: '',
+    buyerName: '',
+    contactNumber: '',
+    township: '',
+    region: '',
+    customerType: 'New',
+    qty: '',
+    gram: '',
+    amount: '',
+    itemCategory: '',
+    itemMainGroup: '',
+    itemsCode: '',
+    purity: '',
+    specialEvent: '',
+  });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -112,6 +152,48 @@ export default function SalesDataSettingsPage() {
     }
   }
 
+  async function createRecord() {
+    setCreating(true);
+    setMessage('');
+    setError('');
+    try {
+      const payload = {
+        saleDate: record.saleDate || null,
+        branchName: record.branchName || null,
+        reason: record.reason || null,
+        salesStaff: record.salesStaff || null,
+        buyerName: record.buyerName || null,
+        contactNumber: record.contactNumber || null,
+        township: record.township || null,
+        region: record.region || null,
+        customerType: record.customerType || null,
+        qty: record.qty ? Number(record.qty) : null,
+        gram: record.gram ? Number(record.gram) : null,
+        amount: record.amount ? Number(record.amount) : null,
+        itemCategory: record.itemCategory || null,
+        itemMainGroup: record.itemMainGroup || null,
+        itemsCode: record.itemsCode || null,
+        purity: record.purity || null,
+        specialEvent: record.specialEvent || null,
+      };
+      await api.post('/sales/transactions', payload);
+      setMessage('Sales record အသစ် ထည့်သွင်းပြီးပါပြီ။ Sales/CM View ကိုပြန်ကြည့်ပါ။');
+      await loadStatus();
+      setRecord((prev) => ({
+        ...prev,
+        qty: '',
+        gram: '',
+        amount: '',
+        buyerName: '',
+        contactNumber: '',
+      }));
+    } catch {
+      setError('Sales record create မအောင်မြင်ပါ');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   if (!canImport) {
     return (
       <div className="p-6">
@@ -156,6 +238,83 @@ export default function SalesDataSettingsPage() {
         ) : (
           <p className="text-sm text-[#8c8c8c]">—</p>
         )}
+      </div>
+
+      <div className="rounded-xl border border-[#e8e8e8] bg-white p-4 space-y-4">
+        <h3 className="text-sm font-semibold text-[#262626]">Add new sales record</h3>
+        <p className="text-xs text-[#8c8c8c]">
+          Google Form အစား record အသစ်ကို Database ထဲ တိုက်ရိုက်ထည့်ပါ။ Save ပြီးရင် Sales/CM View မှာပဲ ပြန်မြင်နိုင်ပါသည်။
+        </p>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <Label>Date</Label>
+            <Input type="date" value={record.saleDate} onChange={(e) => setRecord((p) => ({ ...p, saleDate: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Branch</Label>
+            <Input value={record.branchName} onChange={(e) => setRecord((p) => ({ ...p, branchName: e.target.value }))} placeholder="Shop 1" />
+          </div>
+          <div className="space-y-1">
+            <Label>Reason</Label>
+            <Input value={record.reason} onChange={(e) => setRecord((p) => ({ ...p, reason: e.target.value }))} placeholder="G Sale / Dia Sale / PT Sale" />
+          </div>
+          <div className="space-y-1">
+            <Label>Amount</Label>
+            <Input type="number" value={record.amount} onChange={(e) => setRecord((p) => ({ ...p, amount: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="space-y-1">
+            <Label>Qty</Label>
+            <Input type="number" value={record.qty} onChange={(e) => setRecord((p) => ({ ...p, qty: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="space-y-1">
+            <Label>Gram</Label>
+            <Input type="number" value={record.gram} onChange={(e) => setRecord((p) => ({ ...p, gram: e.target.value }))} placeholder="0" />
+          </div>
+          <div className="space-y-1">
+            <Label>Items Code</Label>
+            <Input value={record.itemsCode} onChange={(e) => setRecord((p) => ({ ...p, itemsCode: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Item Main Group</Label>
+            <Input value={record.itemMainGroup} onChange={(e) => setRecord((p) => ({ ...p, itemMainGroup: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Item Category</Label>
+            <Input value={record.itemCategory} onChange={(e) => setRecord((p) => ({ ...p, itemCategory: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Sales Staff</Label>
+            <Input value={record.salesStaff} onChange={(e) => setRecord((p) => ({ ...p, salesStaff: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Buyer Name</Label>
+            <Input value={record.buyerName} onChange={(e) => setRecord((p) => ({ ...p, buyerName: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Contact</Label>
+            <Input value={record.contactNumber} onChange={(e) => setRecord((p) => ({ ...p, contactNumber: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Region</Label>
+            <Input value={record.region} onChange={(e) => setRecord((p) => ({ ...p, region: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Township</Label>
+            <Input value={record.township} onChange={(e) => setRecord((p) => ({ ...p, township: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Purity</Label>
+            <Input value={record.purity} onChange={(e) => setRecord((p) => ({ ...p, purity: e.target.value }))} />
+          </div>
+          <div className="space-y-1">
+            <Label>Remark</Label>
+            <Input value={record.specialEvent} onChange={(e) => setRecord((p) => ({ ...p, specialEvent: e.target.value }))} />
+          </div>
+        </div>
+        <Button onClick={createRecord} disabled={creating || !record.saleDate || !record.branchName}>
+          {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Save record
+        </Button>
       </div>
 
       <div className="rounded-xl border border-[#e8e8e8] bg-white p-4 space-y-4">
