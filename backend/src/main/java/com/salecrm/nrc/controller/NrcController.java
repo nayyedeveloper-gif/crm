@@ -12,7 +12,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/nrcs")
 @RequiredArgsConstructor
-@PreAuthorize("@perm.canAny('CRM_VIEW','CRM_EDIT')")
+@PreAuthorize("@perm.canAny('CRM_VIEW','CRM_EDIT','SALES_VIEW')")
 public class NrcController {
 
     private final NrcService nrcService;

@@ -13,7 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/locations")
 @RequiredArgsConstructor
-@PreAuthorize("@perm.canAny('CRM_VIEW','CRM_EDIT')")
+@PreAuthorize("@perm.canAny('CRM_VIEW','CRM_EDIT','SALES_VIEW')")
 public class LocationController {
 
     private final LocationService locationService;
