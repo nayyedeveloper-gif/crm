@@ -12,7 +12,8 @@ import type {
   ShowcaseSubcategoryResponse,
   ShowcaseSummaryResponse,
 } from '@/types';
-import { jewelleryKind } from '@/lib/jewellery-specs';
+import { jewelleryKind, jewellerySpecRows, adminSpecLabels } from '@/lib/jewellery-specs';
+import { JewelleryWeightFields } from '@/components/products/jewellery-weight-fields';
 import { AuthImage, fetchAuthImageBlob, useAuthImageSrc } from '@/components/auth-image';
 import { ImageCropRotateDialog, normalizeImageFile } from '@/components/image-crop-rotate-dialog';
 import { Button } from '@/components/ui/button';
@@ -49,11 +50,25 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   Tags,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const MAX_PHOTOS = 12;
+
+function formatMmk(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return '';
+  return new Intl.NumberFormat('en-US').format(value);
+}
+
+function purityOptionsFor(kind: ReturnType<typeof jewelleryKind>): string[] {
+  if (kind === 'diamond') return ['18K', '22K', 'PT950', 'PT900'];
+  if (kind === 'platinum') return ['PT950', 'PT900', 'PT850'];
+  if (kind === 'gold') return ['၁၅ ပဲရည်', '၁၆ ပဲရည်', '18K', '22K', '24K'];
+  return ['၁၅ ပဲရည်', '၁၆ ပဲရည်', '18K', '22K', 'PT950', 'Silver'];
+}
 
 type DraftPhoto = {
   key: string;
@@ -70,6 +85,10 @@ type FormState = {
   categoryId: string;
   subcategoryId: string;
   description: string;
+  priceMmk: string;
+  metalPurity: string;
+  weightGram: string;
+  stoneCarat: string;
   active: boolean;
   photos: DraftPhoto[];
   removeImageIds: number[];
@@ -82,6 +101,10 @@ const emptyForm = (branchId = '', categoryId = ''): FormState => ({
   categoryId,
   subcategoryId: '',
   description: '',
+  priceMmk: '',
+  metalPurity: '',
+  weightGram: '',
+  stoneCarat: '',
   active: true,
   photos: [],
   removeImageIds: [],
@@ -139,17 +162,27 @@ function PhotoSlot({
   preview,
   previewCacheKey,
   label,
+  cover,
   onPick,
   onClear,
   onEdit,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   editing,
 }: {
   preview?: string;
   previewCacheKey?: string;
   label: string;
+  cover?: boolean;
   onPick: (file: File) => void;
   onClear: () => void;
   onEdit?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   editing?: boolean;
 }) {
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -166,26 +199,56 @@ function PhotoSlot({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-[#d9d9d9] bg-[#fafafa] dark:border-neutral-700 dark:bg-neutral-950"
-      >
-        {resolvedPreview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={resolvedPreview} alt={label} className="h-full w-full object-contain" />
-        ) : (
-          <>
-            <ImagePlus className="h-5 w-5 text-[#bfbfbf]" />
-            <span className="mt-1 text-[10px] text-[#8c8c8c]">{label}</span>
-          </>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-[#d9d9d9] bg-[#fafafa] dark:border-neutral-700 dark:bg-neutral-950"
+        >
+          {resolvedPreview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={resolvedPreview} alt={label} className="h-full w-full object-contain" />
+          ) : (
+            <>
+              <ImagePlus className="h-5 w-5 text-[#bfbfbf]" />
+              <span className="mt-1 text-[10px] text-[#8c8c8c]">{label}</span>
+            </>
+          )}
+          {resolvedPreview && (
+            <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+              {cover ? 'Cover' : label}
+            </span>
+          )}
+        </button>
+        {resolvedPreview && (onMoveUp || onMoveDown) && (
+          <div className="absolute top-1 right-1 flex flex-col gap-0.5">
+            <button
+              type="button"
+              disabled={!canMoveUp}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp?.();
+              }}
+              className="rounded bg-black/55 p-0.5 text-white disabled:opacity-30"
+              aria-label="Move photo up"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={!canMoveDown}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown?.();
+              }}
+              className="rounded bg-black/55 p-0.5 text-white disabled:opacity-30"
+              aria-label="Move photo down"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
-        {resolvedPreview && (
-          <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
-            {label}
-          </span>
-        )}
-      </button>
+      </div>
       <input
         ref={galleryRef}
         type="file"
@@ -229,7 +292,7 @@ function PhotoSlot({
                   ) : (
                     <Pencil className="h-4 w-4 text-primary" />
                   )}
-                  Crop &amp; Rotate
+                  Crop &amp; edit
                 </button>
               )}
               <button
@@ -324,6 +387,18 @@ export default function ShowcasePage() {
     return cat?.name || '';
   }, [categories, form.categoryId]);
 
+  const formKind = useMemo(
+    () => jewelleryKind(selectedCategoryName),
+    [selectedCategoryName]
+  );
+
+  const specLabels = useMemo(
+    () => adminSpecLabels(selectedCategoryName),
+    [selectedCategoryName]
+  );
+
+  const formPurityOptions = useMemo(() => purityOptionsFor(formKind), [formKind]);
+
   const formNeedsSubcategory = requiresSubcategory(selectedCategoryName);
 
   const formSubcategories = useMemo(
@@ -404,6 +479,10 @@ export default function ShowcasePage() {
       categoryId: item.categoryId != null ? String(item.categoryId) : defaultCategoryId,
       subcategoryId: item.subcategoryId != null ? String(item.subcategoryId) : '',
       description: item.description || '',
+      priceMmk: item.priceMmk != null ? String(item.priceMmk) : '',
+      metalPurity: item.metalPurity || '',
+      weightGram: item.weightGram != null ? String(item.weightGram) : '',
+      stoneCarat: item.stoneCarat != null ? String(item.stoneCarat) : '',
       active: item.active,
       photos: item.images.map((img) => ({
         key: `ex-${img.id}`,
@@ -525,6 +604,19 @@ export default function ShowcasePage() {
     });
   }
 
+  function movePhoto(key: string, direction: -1 | 1) {
+    setForm((f) => {
+      const idx = f.photos.findIndex((p) => p.key === key);
+      if (idx < 0) return f;
+      const next = idx + direction;
+      if (next < 0 || next >= f.photos.length) return f;
+      const photos = [...f.photos];
+      const [moved] = photos.splice(idx, 1);
+      photos.splice(next, 0, moved);
+      return { ...f, photos };
+    });
+  }
+
   async function save() {
     if (!form.itemCode.trim() || !form.name.trim()) {
       setError('Code and name are required');
@@ -556,10 +648,21 @@ export default function ShowcasePage() {
       fd.append('categoryId', form.categoryId);
       if (form.subcategoryId) fd.append('subcategoryId', form.subcategoryId);
       fd.append('description', form.description.trim());
+      if (form.priceMmk.trim()) fd.append('priceMmk', form.priceMmk.trim());
+      if (form.metalPurity.trim()) fd.append('metalPurity', form.metalPurity.trim());
+      if (form.weightGram.trim()) fd.append('weightGram', form.weightGram.trim());
+      if (form.stoneCarat.trim()) fd.append('stoneCarat', form.stoneCarat.trim());
       if (editId != null) fd.append('active', String(form.active));
+      const sequence: string[] = [];
       for (const photo of form.photos) {
-        if (photo.file) fd.append('images', photo.file);
+        if (photo.file) {
+          fd.append('images', photo.file);
+          sequence.push('new');
+        } else if (photo.existingId != null) {
+          sequence.push(String(photo.existingId));
+        }
       }
+      fd.append('photoSequence', sequence.join(','));
       if (editId != null && form.removeImageIds.length) {
         fd.append('removeImageIds', form.removeImageIds.join(','));
       }
@@ -826,6 +929,17 @@ export default function ShowcasePage() {
                         )}
                       </div>
                     </div>
+                    {(item.priceMmk != null ||
+                      jewellerySpecRows(item).length > 0) && (
+                      <p className="text-xs text-[#595959]">
+                        {[
+                          item.priceMmk != null ? `${formatMmk(item.priceMmk)} Ks` : null,
+                          ...jewellerySpecRows(item).map((row) => row.value),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </p>
+                    )}
                     {item.description && (
                       <p className="line-clamp-2 text-xs text-[#8c8c8c]">{item.description}</p>
                     )}
@@ -1014,6 +1128,66 @@ export default function ShowcasePage() {
               />
             </div>
 
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="sc-price">Price (MMK)</Label>
+                <Input
+                  id="sc-price"
+                  inputMode="decimal"
+                  value={form.priceMmk}
+                  onChange={(e) => setForm((f) => ({ ...f, priceMmk: e.target.value }))}
+                  placeholder="e.g. 2500000"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{specLabels.purity}</Label>
+                <Select
+                  value={form.metalPurity || '__none__'}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, metalPurity: v === '__none__' ? '' : v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={specLabels.purityPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {formPurityOptions.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                    {form.metalPurity && !formPurityOptions.includes(form.metalPurity) && (
+                      <SelectItem value={form.metalPurity}>{form.metalPurity}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <JewelleryWeightFields
+              kind={formKind}
+              weightGram={form.weightGram}
+              stoneCarat={form.stoneCarat}
+              onWeightGram={(v) => setForm((f) => ({ ...f, weightGram: v }))}
+              onStoneCarat={(v) => setForm((f) => ({ ...f, stoneCarat: v }))}
+            />
+
+            {formKind === 'gold' && (
+              <div className="space-y-1.5">
+                <Label htmlFor="sc-gold-stone">Stone (ct) — optional</Label>
+                <Input
+                  id="sc-gold-stone"
+                  type="number"
+                  min={0}
+                  step="0.001"
+                  value={form.stoneCarat}
+                  onChange={(e) => setForm((f) => ({ ...f, stoneCarat: e.target.value }))}
+                  placeholder="If gold piece has diamonds / stones"
+                />
+              </div>
+            )}
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <ReqLabel>
@@ -1028,9 +1202,25 @@ export default function ShowcasePage() {
                   <PhotoSlot
                     key={photo.key}
                     label={`Photo ${idx + 1}`}
+                    cover={idx === 0}
                     preview={photo.preview}
                     previewCacheKey={photo.previewCacheKey}
-                    onPick={(file) => beginCrop(file, photo.key)}
+                    canMoveUp={idx > 0}
+                    canMoveDown={idx < form.photos.length - 1}
+                    onMoveUp={() => movePhoto(photo.key, -1)}
+                    onMoveDown={() => movePhoto(photo.key, 1)}
+                    onPick={(file) => {
+                      void (async () => {
+                        setEditingPhotoKey(photo.key);
+                        try {
+                          await beginCropNormalized(file, photo.key, file.name || 'showcase.jpg');
+                        } catch {
+                          setError('Could not process image');
+                        } finally {
+                          setEditingPhotoKey(null);
+                        }
+                      })();
+                    }}
                     onEdit={() => void editExistingPhoto(photo)}
                     editing={editingPhotoKey === photo.key}
                     onClear={() => clearPhoto(photo.key)}
@@ -1045,7 +1235,8 @@ export default function ShowcasePage() {
                 )}
               </div>
               <p className="text-[11px] text-[#8c8c8c]">
-                Photo ကို နှိပ်ပြီး Crop &amp; Rotate / Replace / Remove လုပ်နိုင်သည် · up to {MAX_PHOTOS} photos
+                First photo is the cover · use arrows to reorder · tap photo for Adjust / Filters / Crop · up to{' '}
+                {MAX_PHOTOS} photos
               </p>
             </div>
 
@@ -1209,6 +1400,20 @@ export default function ShowcasePage() {
                     <dt className="text-[#8c8c8c]">Branch / Shop</dt>
                     <dd className="font-medium">{viewItem.branchName}</dd>
                   </div>
+                  {viewItem.priceMmk != null && (
+                    <div>
+                      <dt className="text-[#8c8c8c]">Price</dt>
+                      <dd className="font-medium">{formatMmk(viewItem.priceMmk)} Ks</dd>
+                    </div>
+                  )}
+                  {jewellerySpecRows(viewItem).map((row) => (
+                    <div key={row.key}>
+                      <dt className="text-[#8c8c8c]">{row.label}</dt>
+                      <dd className={cn('font-medium', row.emphasize && 'text-[#262626]')}>
+                        {row.value}
+                      </dd>
+                    </div>
+                  ))}
                   <div>
                     <dt className="text-[#8c8c8c]">Photos</dt>
                     <dd className="font-medium">{viewItem.images.length}</dd>

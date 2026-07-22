@@ -54,7 +54,8 @@ public class ShowcaseController {
             @RequestParam(value = "metalPurity", required = false) String metalPurity,
             @RequestParam(value = "weightGram", required = false) String weightGram,
             @RequestParam(value = "stoneCarat", required = false) String stoneCarat,
-            @RequestParam(value = "images", required = false) MultipartFile[] images) {
+            @RequestParam(value = "images", required = false) MultipartFile[] images,
+            @RequestParam(value = "photoSequence", required = false) String photoSequence) {
         return ApiResponse.ok(
                 showcaseService.create(
                         branchId, itemCode, name, categoryId, subcategoryId, description,
@@ -62,7 +63,8 @@ public class ShowcaseController {
                         metalPurity,
                         parseDecimal(weightGram, "weight"),
                         parseDecimal(stoneCarat, "carat"),
-                        images),
+                        images,
+                        photoSequence),
                 "Showcase item created");
     }
 
@@ -81,7 +83,8 @@ public class ShowcaseController {
             @RequestParam(value = "stoneCarat", required = false) String stoneCarat,
             @RequestParam(value = "active", required = false) Boolean active,
             @RequestParam(value = "images", required = false) MultipartFile[] images,
-            @RequestParam(value = "removeImageIds", required = false) String removeImageIds) {
+            @RequestParam(value = "removeImageIds", required = false) String removeImageIds,
+            @RequestParam(value = "photoSequence", required = false) String photoSequence) {
         return ApiResponse.ok(
                 showcaseService.update(
                         id, branchId, itemCode, name, categoryId, subcategoryId, description,
@@ -89,7 +92,7 @@ public class ShowcaseController {
                         metalPurity,
                         parseDecimal(weightGram, "weight"),
                         parseDecimal(stoneCarat, "carat"),
-                        active, images, removeImageIds),
+                        active, images, removeImageIds, photoSequence),
                 "Showcase item updated");
     }
 

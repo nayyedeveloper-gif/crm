@@ -22,7 +22,6 @@ import com.salecrm.showcase.util.JewelleryCategories;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +32,10 @@ import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -121,7 +122,8 @@ public class ShowcaseService {
             String metalPurity,
             BigDecimal weightGram,
             BigDecimal stoneCarat,
-            MultipartFile[] images) {
+            MultipartFile[] images,
+            String photoSequence) {
         UserPrincipal user = SecurityUtils.requireCurrentUser();
         Branch branch = requireWritableBranch(user, branchId);
         ProductCategory category = requireCategory(categoryId);
@@ -148,7 +150,7 @@ public class ShowcaseService {
                 .build();
         applySubcategory(item, category, subcategoryId);
         item = itemRepository.save(item);
-        addImages(item, images);
+        applyPhotoSequence(item, photoSequence, images);
         ShowcaseItem saved = itemRepository.save(item);
 
         auditLogService.change("SHOWCASE", "CREATE",
@@ -172,7 +174,8 @@ public class ShowcaseService {
             BigDecimal stoneCarat,
             Boolean active,
             MultipartFile[] images,
-            String removeImageIds) {
+            String removeImageIds,
+            String photoSequence) {
         ShowcaseItem item = require(id);
         ensureBranchAccess(item.getBranch().getId());
         UserPrincipal user = SecurityUtils.requireCurrentUser();
@@ -203,7 +206,7 @@ public class ShowcaseService {
         }
 
         removeImages(item, removeImageIds);
-        addImages(item, images);
+        applyPhotoSequence(item, photoSequence, images);
         ShowcaseItem saved = itemRepository.save(item);
 
         auditLogService.change("SHOWCASE", "UPDATE",
@@ -243,6 +246,82 @@ public class ShowcaseService {
         if (lower.endsWith(".webp")) return new MediaType("image", "webp");
         if (lower.endsWith(".gif")) return MediaType.IMAGE_GIF;
         return MediaType.IMAGE_JPEG;
+    }
+
+    /**
+     * Applies photo order. {@code photoSequence} is a comma-separated list of existing image ids
+     * and the token {@code new} for each new multipart file (in order). When omitted, new images
+     * are appended after existing ones.
+     */
+    private void applyPhotoSequence(ShowcaseItem item, String photoSequence, MultipartFile[] images) {
+        if (!StringUtils.hasText(photoSequence)) {
+            addImages(item, images);
+            return;
+        }
+
+        Map<Long, ShowcaseImage> byId = new HashMap<>();
+        for (ShowcaseImage img : item.getImages()) {
+            byId.put(img.getId(), img);
+        }
+
+        List<ShowcaseImage> ordered = new ArrayList<>();
+        int fileIdx = 0;
+        MultipartFile[] files = images != null ? images : new MultipartFile[0];
+
+        for (String raw : photoSequence.split(",")) {
+            String token = raw.trim();
+            if (!StringUtils.hasText(token)) continue;
+            if ("new".equalsIgnoreCase(token)) {
+                while (fileIdx < files.length && (files[fileIdx] == null || files[fileIdx].isEmpty())) {
+                    fileIdx++;
+                }
+                if (fileIdx >= files.length) {
+                    throw new BusinessException("Photo sequence is missing a new image file");
+                }
+                if (ordered.size() >= MAX_IMAGES) {
+                    throw new BusinessException("Maximum " + MAX_IMAGES + " photos per item");
+                }
+                String path = imageStorage.store(item.getId(), files[fileIdx++]);
+                if (path == null) {
+                    throw new BusinessException("Failed to store showcase image");
+                }
+                ShowcaseImage created = ShowcaseImage.builder()
+                        .filePath(path)
+                        .sortOrder(ordered.size())
+                        .build();
+                ordered.add(created);
+            } else {
+                Long id;
+                try {
+                    id = Long.valueOf(token);
+                } catch (NumberFormatException e) {
+                    throw new BusinessException("Invalid photo sequence token: " + token);
+                }
+                ShowcaseImage existing = byId.remove(id);
+                if (existing == null) {
+                    throw new BusinessException("Unknown photo in sequence: " + id);
+                }
+                ordered.add(existing);
+            }
+        }
+
+        if (ordered.size() > MAX_IMAGES) {
+            throw new BusinessException("Maximum " + MAX_IMAGES + " photos per item");
+        }
+
+        for (ShowcaseImage leftover : byId.values()) {
+            imageStorage.deleteQuietly(leftover.getFilePath());
+            item.getImages().remove(leftover);
+            leftover.setItem(null);
+        }
+
+        for (int i = 0; i < ordered.size(); i++) {
+            ShowcaseImage img = ordered.get(i);
+            img.setSortOrder(i);
+            if (img.getId() == null) {
+                item.addImage(img);
+            }
+        }
     }
 
     private void addImages(ShowcaseItem item, MultipartFile[] images) {
