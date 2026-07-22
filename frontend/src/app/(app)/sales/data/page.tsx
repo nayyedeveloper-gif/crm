@@ -130,7 +130,7 @@ export default function SalesDataPage() {
       <div>
         <h2 className="text-lg font-semibold text-[#262626]">Sales Data</h2>
         <p className="mt-1 text-sm text-[#8c8c8c]">
-          Google Form column အားလုံးဖြင့် record ထည့်ခြင်း၊ CSV import/export လုပ်ပါ။
+          Database သို့ တိုက်ရိုက်ထည့်ပါ။ Save ပြီးရင် Sales/CM View မှာ အလိုအလျောက် ပေါ်ပါမည် — Google Sheet မသုံးတော့ပါ။
         </p>
       </div>
 

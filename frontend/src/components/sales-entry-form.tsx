@@ -402,7 +402,19 @@ export function SalesEntryForm({ onSaved, onError }: SalesEntryFormProps) {
       };
 
       await api.post('/sales/transactions', payload);
-      onSaved('Sales record အသစ် ထည့်သွင်းပြီးပါပြီ။ CM View မှာ ပြန်ကြည့်နိုင်ပါသည်။');
+      // Notify Sales SPA (CM View iframe) to reload from DB immediately
+      try {
+        const stamp = String(Date.now());
+        localStorage.setItem('sales-data-updated-at', stamp);
+        if (typeof BroadcastChannel !== 'undefined') {
+          const channel = new BroadcastChannel('sales-data');
+          channel.postMessage({ type: 'sales-data-updated', at: stamp });
+          channel.close();
+        }
+      } catch {
+        // ignore storage errors
+      }
+      onSaved('Sales record အသစ် ထည့်သွင်းပြီးပါပြီ။ CM View မှာ ချက်ချင်း ပြန်မြင်နိုင်ပါသည်။');
       setForm((prev) => ({
         ...createEmptySalesEntry(),
         branchId: prev.branchId,
@@ -439,7 +451,7 @@ export function SalesEntryForm({ onSaved, onError }: SalesEntryFormProps) {
         <div>
           <h3 className="text-sm font-semibold text-[#262626]">Add new sales record</h3>
           <p className="mt-1 text-xs text-[#8c8c8c]">
-            form.csv column အားလုံး (54 fields) — Google Form နှင့် တူညီစွာ ထည့်သွင်းပါ။
+            form.csv column အားလုံး — Save ပြီးရင် Database → CM View သို့ တိုက်ရိုက် ပေါ်ပါမည် (Google Sheet မသုံးပါ)။
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>

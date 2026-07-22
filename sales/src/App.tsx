@@ -366,7 +366,40 @@ export default function App() {
  loadData(false);
  loadTargetSheet();
  }, highPerformanceMode ? 300000 : 180000); // 5 min in high perf, 3 min normal
- return () => clearInterval(interval);
+
+ // Immediate reload when Sales Data form saves a new record
+ const onStorage = (e: StorageEvent) => {
+ if (e.key === 'sales-data-updated-at' && e.newValue) {
+ loadData(false);
+ loadTargetSheet();
+ }
+ };
+ window.addEventListener('storage', onStorage);
+
+ let channel: BroadcastChannel | null = null;
+ if (typeof BroadcastChannel !== 'undefined') {
+ channel = new BroadcastChannel('sales-data');
+ channel.onmessage = (event) => {
+ if (event?.data?.type === 'sales-data-updated') {
+ loadData(false);
+ loadTargetSheet();
+ }
+ };
+ }
+
+ const onVisible = () => {
+ if (document.visibilityState === 'visible') {
+ loadData(false);
+ }
+ };
+ document.addEventListener('visibilitychange', onVisible);
+
+ return () => {
+ clearInterval(interval);
+ window.removeEventListener('storage', onStorage);
+ document.removeEventListener('visibilitychange', onVisible);
+ channel?.close();
+ };
  }, [isAuthenticated, highPerformanceMode, selectedMonth, startDate, endDate]);
 
  const handleLoginRedirect = () => {

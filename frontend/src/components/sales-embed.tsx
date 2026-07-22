@@ -11,8 +11,8 @@ export type SalesView =
   | 'detail';
 
 /**
- * Embeds the standalone Sales Vite SPA (UI unchanged).
- * No data coupling to Shop / CRM History — Sheets-based Sales only.
+ * Embeds the standalone Sales Vite SPA.
+ * Data comes from CRM PostgreSQL via /api/sales/* — Google Sheets are not used.
  */
 export function SalesEmbed({ view }: { view: SalesView }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
