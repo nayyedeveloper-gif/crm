@@ -83,4 +83,10 @@ public class SalesTransaction extends BaseEntity {
 
     @Column(name = "special_event", length = 240)
     private String specialEvent;
+
+    @Column(name = "buyer_nrc", length = 80)
+    private String buyerNrc;
+
+    @Column(name = "form_extra", columnDefinition = "TEXT")
+    private String formExtra;
 }

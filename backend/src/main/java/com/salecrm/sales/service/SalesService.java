@@ -1,5 +1,7 @@
 package com.salecrm.sales.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salecrm.branch.entity.Branch;
 import com.salecrm.branch.repository.BranchRepository;
 import com.salecrm.common.exception.ForbiddenBranchAccessException;
@@ -36,6 +38,7 @@ public class SalesService {
     private final SalesTransactionRepository transactionRepository;
     private final SalesMonthlyTargetRepository targetRepository;
     private final BranchRepository branchRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listTransactions(LocalDate from, LocalDate to) {
@@ -57,12 +60,17 @@ public class SalesService {
             }
         }
 
+        String formExtraJson = serializeFormExtra(request.formExtra());
+        String transactionTs = extractTimestamp(request.formExtra());
+
         SalesTransaction entity = SalesTransaction.builder()
+                .transactionTs(transactionTs)
                 .saleDate(request.saleDate())
                 .branchName(StringUtils.hasText(request.branchName()) ? request.branchName().trim() : "Unknown")
                 .reason(trim(request.reason()))
                 .salesStaff(trim(request.salesStaff()))
                 .buyerName(trim(request.buyerName()))
+                .buyerNrc(trim(request.buyerNrc()))
                 .contactNumber(trim(request.contactNumber()))
                 .township(trim(request.township()))
                 .region(trim(request.region()))
@@ -75,6 +83,7 @@ public class SalesService {
                 .itemsCode(trim(request.itemsCode()))
                 .purity(trim(request.purity()))
                 .specialEvent(trim(request.specialEvent()))
+                .formExtra(formExtraJson)
                 .build();
 
         SalesTransaction saved = transactionRepository.save(entity);
@@ -175,6 +184,29 @@ public class SalesService {
             return null;
         }
         return value.trim();
+    }
+
+    private String serializeFormExtra(Map<String, Object> formExtra) {
+        if (formExtra == null || formExtra.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(formExtra);
+        } catch (JsonProcessingException ex) {
+            throw new IllegalArgumentException("Invalid form data");
+        }
+    }
+
+    private static String extractTimestamp(Map<String, Object> formExtra) {
+        if (formExtra == null) {
+            return null;
+        }
+        Object ts = formExtra.get("Timestamp");
+        if (ts == null) {
+            return null;
+        }
+        String value = String.valueOf(ts).trim();
+        return value.isEmpty() || "null".equals(value) ? null : value;
     }
 
     private static Map<String, Object> toTargetShopMap(SalesMonthlyTarget row) {

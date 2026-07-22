@@ -2,11 +2,13 @@ package com.salecrm.sales.controller;
 
 import com.salecrm.common.web.ApiResponse;
 import com.salecrm.sales.dto.SalesBranchOption;
+import com.salecrm.sales.dto.SalesFormOptionsResponse;
 import com.salecrm.sales.dto.SalesImportResult;
 import com.salecrm.sales.dto.SalesStatusResponse;
 import com.salecrm.sales.dto.SalesTargetSheetResponse;
 import com.salecrm.sales.dto.SalesTransactionCreateRequest;
 import com.salecrm.sales.service.SalesExportService;
+import com.salecrm.sales.service.SalesFormOptionsService;
 import com.salecrm.sales.service.SalesImportService;
 import com.salecrm.sales.service.SalesService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,6 +30,7 @@ import java.util.Map;
 public class SalesController {
 
     private final SalesService salesService;
+    private final SalesFormOptionsService formOptionsService;
     private final SalesImportService importService;
     private final SalesExportService exportService;
 
@@ -66,6 +69,12 @@ public class SalesController {
     @PreAuthorize("@perm.can('SALES_VIEW')")
     public ApiResponse<List<SalesBranchOption>> branches() {
         return ApiResponse.ok(salesService.listBranchOptions());
+    }
+
+    @GetMapping("/form-options")
+    @PreAuthorize("@perm.can('SALES_VIEW')")
+    public ApiResponse<SalesFormOptionsResponse> formOptions() {
+        return ApiResponse.ok(formOptionsService.options());
     }
 
     @PostMapping(value = "/import/transactions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

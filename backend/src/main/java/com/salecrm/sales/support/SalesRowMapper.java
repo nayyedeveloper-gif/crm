@@ -35,6 +35,9 @@ public final class SalesRowMapper {
         if (t.getBuyerName() != null) {
             row.put("ဝယ်သူ အမည်", t.getBuyerName());
         }
+        if (t.getBuyerNrc() != null) {
+            row.put("မှတ်ပုံတင်အမှတ်", t.getBuyerNrc());
+        }
         if (t.getContactNumber() != null) {
             row.put("Contact Number", t.getContactNumber());
         }

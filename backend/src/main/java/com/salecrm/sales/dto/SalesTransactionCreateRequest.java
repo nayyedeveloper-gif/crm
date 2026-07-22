@@ -2,6 +2,7 @@ package com.salecrm.sales.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 
 public record SalesTransactionCreateRequest(
         LocalDate saleDate,
@@ -9,6 +10,7 @@ public record SalesTransactionCreateRequest(
         String reason,
         String salesStaff,
         String buyerName,
+        String buyerNrc,
         String contactNumber,
         String township,
         String region,
@@ -20,6 +22,7 @@ public record SalesTransactionCreateRequest(
         String itemMainGroup,
         String itemsCode,
         String purity,
-        String specialEvent
+        String specialEvent,
+        Map<String, Object> formExtra
 ) {
 }
