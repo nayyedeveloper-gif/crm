@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Cropper, { type Area, type Point } from 'react-easy-crop';
+import { createPortal } from 'react-dom';
+import Cropper, { type Area, type MediaSize, type Point } from 'react-easy-crop';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Loader2, RotateCcw, RotateCw, X } from 'lucide-react';
@@ -20,7 +21,10 @@ function createImage(url: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.addEventListener('load', () => resolve(img));
     img.addEventListener('error', () => reject(new Error('Failed to load image')));
-    img.crossOrigin = 'anonymous';
+    // crossOrigin on blob:/data: breaks decoding in some browsers
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = url;
   });
 }
@@ -39,6 +43,34 @@ function rotatedSize(width: number, height: number, rotation: number) {
   };
 }
 
+/** Re-encode any blob/file to a clean JPEG so Cropper can zoom/rotate reliably. */
+export async function normalizeImageFile(input: Blob | File, fileName = 'showcase.jpg'): Promise<File> {
+  const bitmap = await createImageBitmap(input);
+  try {
+    const maxEdge = 2400;
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not supported');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Image encode failed'))),
+        SHOP_IMAGE_MIME,
+        0.92
+      );
+    });
+    const base = fileName.replace(/\.[^.]+$/, '') || 'showcase';
+    return new File([blob], `${base}.jpg`, { type: SHOP_IMAGE_MIME, lastModified: Date.now() });
+  } finally {
+    bitmap.close?.();
+  }
+}
+
 export async function getCroppedRotatedImage(
   imageSrc: string,
   crop: Area,
@@ -50,17 +82,29 @@ export async function getCroppedRotatedImage(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas not supported');
 
-  const { width: bBoxW, height: bBoxH } = rotatedSize(image.width, image.height, rotation);
+  const { width: bBoxW, height: bBoxH } = rotatedSize(
+    image.naturalWidth || image.width,
+    image.naturalHeight || image.height,
+    rotation
+  );
 
   const rotCanvas = document.createElement('canvas');
-  rotCanvas.width = Math.ceil(bBoxW);
-  rotCanvas.height = Math.ceil(bBoxH);
+  rotCanvas.width = Math.max(1, Math.ceil(bBoxW));
+  rotCanvas.height = Math.max(1, Math.ceil(bBoxH));
   const rotCtx = rotCanvas.getContext('2d');
   if (!rotCtx) throw new Error('Canvas not supported');
 
-  rotCtx.translate(bBoxW / 2, bBoxH / 2);
+  rotCtx.fillStyle = SHOP_IMAGE_BG;
+  rotCtx.fillRect(0, 0, rotCanvas.width, rotCanvas.height);
+  rotCtx.translate(rotCanvas.width / 2, rotCanvas.height / 2);
   rotCtx.rotate(rad(rotation));
-  rotCtx.drawImage(image, -image.width / 2, -image.height / 2);
+  rotCtx.drawImage(
+    image,
+    -image.naturalWidth / 2,
+    -image.naturalHeight / 2,
+    image.naturalWidth,
+    image.naturalHeight
+  );
 
   canvas.width = SHOP_IMAGE_SIZE;
   canvas.height = SHOP_IMAGE_SIZE;
@@ -97,8 +141,14 @@ export function ImageCropRotateDialog({
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [mediaReady, setMediaReady] = useState(false);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -106,6 +156,7 @@ export function ImageCropRotateDialog({
     setZoom(1);
     setRotation(0);
     setCroppedAreaPixels(null);
+    setMediaReady(false);
     setError('');
     setApplying(false);
   }, [open, imageSrc]);
@@ -123,6 +174,10 @@ export function ImageCropRotateDialog({
     setCroppedAreaPixels(pixels);
   }, []);
 
+  const onMediaLoaded = useCallback((_size: MediaSize) => {
+    setMediaReady(true);
+  }, []);
+
   async function handleApply() {
     if (!imageSrc || !croppedAreaPixels) return;
     setApplying(true);
@@ -138,15 +193,22 @@ export function ImageCropRotateDialog({
     }
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/60 sm:items-center sm:p-4">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 sm:items-center sm:p-4"
+      style={{ pointerEvents: 'auto' }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+    >
       <div
         className="flex max-h-[94dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl dark:bg-neutral-900 sm:rounded-xl"
         role="dialog"
         aria-modal="true"
         aria-label="Crop and rotate image"
+        style={{ pointerEvents: 'auto' }}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[#f0f0f0] px-4 py-3 dark:border-neutral-800">
           <h2 className="text-base font-semibold text-[#262626] dark:text-neutral-100">
@@ -165,57 +227,73 @@ export function ImageCropRotateDialog({
         <div className="relative mx-4 mt-3 h-[min(48vh,340px)] overflow-hidden rounded-lg bg-neutral-900">
           {imageSrc ? (
             <Cropper
+              key={imageSrc}
               image={imageSrc}
               crop={crop}
               zoom={zoom}
+              minZoom={1}
+              maxZoom={4}
               rotation={rotation}
               aspect={1}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onRotationChange={setRotation}
               onCropComplete={onCropComplete}
-              objectFit="contain"
+              onMediaLoaded={onMediaLoaded}
               showGrid
+              style={{
+                containerStyle: { background: '#171717' },
+              }}
             />
           ) : null}
+          {!mediaReady && (
+            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80">
+              <Loader2 className="h-6 w-6 animate-spin text-white" />
+            </div>
+          )}
         </div>
 
         <div className="space-y-3 overflow-y-auto px-4 py-3">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label>Zoom</Label>
+              <Label htmlFor="crop-zoom">Zoom</Label>
               <span className="text-xs text-[#8c8c8c]">{zoom.toFixed(2)}×</span>
             </div>
             <input
+              id="crop-zoom"
               type="range"
               min={1}
-              max={3}
+              max={4}
               step={0.01}
               value={zoom}
+              disabled={!mediaReady}
               onChange={(e) => setZoom(Number(e.target.value))}
-              className="w-full accent-primary"
+              className="w-full accent-primary disabled:opacity-50"
             />
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label>Rotate (0° – 360°)</Label>
+              <Label htmlFor="crop-rotate">Rotate (0° – 360°)</Label>
               <span className="text-xs tabular-nums text-[#8c8c8c]">{Math.round(rotation)}°</span>
             </div>
             <input
+              id="crop-rotate"
               type="range"
               min={0}
               max={360}
               step={1}
               value={rotation}
+              disabled={!mediaReady}
               onChange={(e) => setRotation(Number(e.target.value))}
-              className="w-full accent-primary"
+              className="w-full accent-primary disabled:opacity-50"
             />
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={!mediaReady}
                 onClick={() => setRotation((r) => (r + 270) % 360)}
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -225,12 +303,23 @@ export function ImageCropRotateDialog({
                 type="button"
                 variant="outline"
                 size="sm"
+                disabled={!mediaReady}
                 onClick={() => setRotation((r) => (r + 90) % 360)}
               >
                 <RotateCw className="mr-1.5 h-3.5 w-3.5" />
                 +90°
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setRotation(0)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!mediaReady}
+                onClick={() => {
+                  setRotation(0);
+                  setZoom(1);
+                  setCrop({ x: 0, y: 0 });
+                }}
+              >
                 Reset
               </Button>
             </div>
@@ -253,13 +342,14 @@ export function ImageCropRotateDialog({
             type="button"
             className="flex-1"
             onClick={() => void handleApply()}
-            disabled={applying || !croppedAreaPixels}
+            disabled={applying || !croppedAreaPixels || !mediaReady}
           >
             {applying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Apply
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

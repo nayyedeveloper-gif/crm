@@ -14,7 +14,7 @@ import type {
 } from '@/types';
 import { jewelleryKind } from '@/lib/jewellery-specs';
 import { AuthImage, fetchAuthImageBlob, useAuthImageSrc } from '@/components/auth-image';
-import { ImageCropRotateDialog } from '@/components/image-crop-rotate-dialog';
+import { ImageCropRotateDialog, normalizeImageFile } from '@/components/image-crop-rotate-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -417,7 +417,7 @@ export default function ShowcasePage() {
   }
 
   function beginCrop(file: File, replaceKey: string | null = null) {
-    if (!file.type.startsWith('image/')) {
+    if (file.type && !file.type.startsWith('image/')) {
       setError('Please choose an image file');
       return;
     }
@@ -432,6 +432,11 @@ export default function ShowcasePage() {
     setCropReplaceKey(replaceKey);
     setCropOpen(true);
     setError('');
+  }
+
+  async function beginCropNormalized(input: Blob | File, replaceKey: string | null, fileName: string) {
+    const normalized = await normalizeImageFile(input, fileName);
+    beginCrop(normalized, replaceKey);
   }
 
   function applyCroppedPhoto(prepared: File) {
@@ -474,31 +479,31 @@ export default function ShowcasePage() {
   }
 
   async function addPhoto(file: File) {
-    beginCrop(file, null);
+    setEditingPhotoKey('__new__');
+    setError('');
+    try {
+      await beginCropNormalized(file, null, file.name || 'showcase.jpg');
+    } catch {
+      setError('Could not process image');
+    } finally {
+      setEditingPhotoKey(null);
+    }
   }
 
   async function editExistingPhoto(photo: DraftPhoto) {
     setEditingPhotoKey(photo.key);
     setError('');
     try {
-      let file: File;
+      let source: Blob | File;
       if (photo.file) {
-        file = photo.file;
+        source = photo.file;
       } else if (photo.preview.startsWith('blob:') || photo.preview.startsWith('data:')) {
         const res = await fetch(photo.preview);
-        const blob = await res.blob();
-        file = new File([blob], `photo-${photo.key}.jpg`, {
-          type: blob.type || 'image/jpeg',
-          lastModified: Date.now(),
-        });
+        source = await res.blob();
       } else {
-        const blob = await fetchAuthImageBlob(photo.preview, photo.previewCacheKey);
-        file = new File([blob], `photo-${photo.existingId ?? photo.key}.jpg`, {
-          type: blob.type || 'image/jpeg',
-          lastModified: Date.now(),
-        });
+        source = await fetchAuthImageBlob(photo.preview, photo.previewCacheKey);
       }
-      beginCrop(file, photo.key);
+      await beginCropNormalized(source, photo.key, `photo-${photo.existingId ?? photo.key}.jpg`);
     } catch {
       setError('Existing photo ကို edit လုပ်ရန် မရပါ');
     } finally {
