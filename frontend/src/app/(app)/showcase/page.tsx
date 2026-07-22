@@ -12,9 +12,9 @@ import type {
   ShowcaseSubcategoryResponse,
   ShowcaseSummaryResponse,
 } from '@/types';
-import { prepareShopImage } from '@/lib/shop-image';
 import { jewelleryKind } from '@/lib/jewellery-specs';
 import { AuthImage, fetchAuthImageBlob, useAuthImageSrc } from '@/components/auth-image';
+import { ImageCropRotateDialog } from '@/components/image-crop-rotate-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -276,6 +276,10 @@ export default function ShowcasePage() {
   const [subEditId, setSubEditId] = useState<number | null>(null);
   const [subName, setSubName] = useState('');
   const [subSaving, setSubSaving] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropFileName, setCropFileName] = useState('showcase.jpg');
+  const [cropReplaceKey, setCropReplaceKey] = useState<string | null>(null);
 
   const defaultBranchId = useMemo(() => {
     if (user?.branchId) return String(user.branchId);
@@ -389,27 +393,65 @@ export default function ShowcasePage() {
     setOpen(true);
   }
 
-  async function addPhoto(file: File) {
-    if (form.photos.length >= MAX_PHOTOS) {
+  function beginCrop(file: File, replaceKey: string | null = null) {
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file');
+      return;
+    }
+    if (replaceKey == null && form.photos.length >= MAX_PHOTOS) {
       setError(`Maximum ${MAX_PHOTOS} photos`);
       return;
     }
-    try {
-      const prepared = await prepareShopImage(file);
+    if (cropSrc?.startsWith('blob:')) URL.revokeObjectURL(cropSrc);
+    const src = URL.createObjectURL(file);
+    setCropSrc(src);
+    setCropFileName(file.name || 'showcase.jpg');
+    setCropReplaceKey(replaceKey);
+    setCropOpen(true);
+    setError('');
+  }
+
+  function applyCroppedPhoto(prepared: File) {
+    const preview = URL.createObjectURL(prepared);
+    if (cropReplaceKey) {
+      const key = cropReplaceKey;
+      setForm((f) => {
+        const prev = f.photos.find((p) => p.key === key);
+        if (prev?.preview.startsWith('blob:')) URL.revokeObjectURL(prev.preview);
+        return {
+          ...f,
+          photos: f.photos.map((p) =>
+            p.key === key
+              ? {
+                  ...p,
+                  file: prepared,
+                  preview,
+                  existingId: undefined,
+                  previewCacheKey: undefined,
+                }
+              : p
+          ),
+          removeImageIds:
+            prev?.existingId != null ? [...f.removeImageIds, prev.existingId] : f.removeImageIds,
+        };
+      });
+    } else {
       setForm((f) => ({
         ...f,
         photos: [
           ...f.photos,
           {
             key: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            preview: URL.createObjectURL(prepared),
+            preview,
             file: prepared,
           },
         ],
       }));
-    } catch {
-      setError('Could not process image');
     }
+  }
+
+  async function addPhoto(file: File) {
+    beginCrop(file, null);
   }
 
   function clearPhoto(key: string) {
@@ -931,32 +973,7 @@ export default function ShowcasePage() {
                     label={`Photo ${idx + 1}`}
                     preview={photo.preview}
                     previewCacheKey={photo.previewCacheKey}
-                    onPick={(file) => {
-                      void (async () => {
-                        try {
-                          const prepared = await prepareShopImage(file);
-                          setForm((f) => ({
-                            ...f,
-                            photos: f.photos.map((p) =>
-                              p.key === photo.key
-                                ? {
-                                    ...p,
-                                    file: prepared,
-                                    preview: URL.createObjectURL(prepared),
-                                    existingId: undefined,
-                                  }
-                                : p
-                            ),
-                            removeImageIds:
-                              photo.existingId != null
-                                ? [...f.removeImageIds, photo.existingId]
-                                : f.removeImageIds,
-                          }));
-                        } catch {
-                          setError('Could not process image');
-                        }
-                      })();
-                    }}
+                    onPick={(file) => beginCrop(file, photo.key)}
                     onClear={() => clearPhoto(photo.key)}
                   />
                 ))}
@@ -969,7 +986,7 @@ export default function ShowcasePage() {
                 )}
               </div>
               <p className="text-[11px] text-[#8c8c8c]">
-                Best size 1200×1200px square · up to {MAX_PHOTOS} photos · auto-resized on upload
+                Best size 1200×1200px square · crop &amp; 360° rotate before upload · up to {MAX_PHOTOS} photos
               </p>
             </div>
 
@@ -1268,6 +1285,23 @@ export default function ShowcasePage() {
           </div>
         </div>
       )}
+
+      <ImageCropRotateDialog
+        open={cropOpen}
+        imageSrc={cropSrc}
+        fileName={cropFileName}
+        onOpenChange={(next) => {
+          setCropOpen(next);
+          if (!next && cropSrc?.startsWith('blob:')) {
+            URL.revokeObjectURL(cropSrc);
+            setCropSrc(null);
+            setCropReplaceKey(null);
+          }
+        }}
+        onApply={(file) => {
+          applyCroppedPhoto(file);
+        }}
+      />
     </div>
   );
 }
