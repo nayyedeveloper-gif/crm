@@ -141,12 +141,16 @@ function PhotoSlot({
   label,
   onPick,
   onClear,
+  onEdit,
+  editing,
 }: {
   preview?: string;
   previewCacheKey?: string;
   label: string;
   onPick: (file: File) => void;
   onClear: () => void;
+  onEdit?: () => void;
+  editing?: boolean;
 }) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -210,6 +214,24 @@ function PhotoSlot({
               <p className="font-semibold text-[#262626] dark:text-neutral-100">{label} photo</p>
             </div>
             <div className="flex flex-col p-2">
+              {preview && onEdit && (
+                <button
+                  type="button"
+                  className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-3 text-sm"
+                  disabled={editing}
+                  onClick={() => {
+                    setOpen(false);
+                    onEdit();
+                  }}
+                >
+                  {editing ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <Pencil className="h-4 w-4 text-primary" />
+                  )}
+                  Crop &amp; Rotate
+                </button>
+              )}
               <button
                 type="button"
                 className="flex min-h-12 items-center gap-3 rounded-lg px-3 py-3 text-sm"
@@ -280,6 +302,7 @@ export default function ShowcasePage() {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropFileName, setCropFileName] = useState('showcase.jpg');
   const [cropReplaceKey, setCropReplaceKey] = useState<string | null>(null);
+  const [editingPhotoKey, setEditingPhotoKey] = useState<string | null>(null);
 
   const defaultBranchId = useMemo(() => {
     if (user?.branchId) return String(user.branchId);
@@ -452,6 +475,35 @@ export default function ShowcasePage() {
 
   async function addPhoto(file: File) {
     beginCrop(file, null);
+  }
+
+  async function editExistingPhoto(photo: DraftPhoto) {
+    setEditingPhotoKey(photo.key);
+    setError('');
+    try {
+      let file: File;
+      if (photo.file) {
+        file = photo.file;
+      } else if (photo.preview.startsWith('blob:') || photo.preview.startsWith('data:')) {
+        const res = await fetch(photo.preview);
+        const blob = await res.blob();
+        file = new File([blob], `photo-${photo.key}.jpg`, {
+          type: blob.type || 'image/jpeg',
+          lastModified: Date.now(),
+        });
+      } else {
+        const blob = await fetchAuthImageBlob(photo.preview, photo.previewCacheKey);
+        file = new File([blob], `photo-${photo.existingId ?? photo.key}.jpg`, {
+          type: blob.type || 'image/jpeg',
+          lastModified: Date.now(),
+        });
+      }
+      beginCrop(file, photo.key);
+    } catch {
+      setError('Existing photo ကို edit လုပ်ရန် မရပါ');
+    } finally {
+      setEditingPhotoKey(null);
+    }
   }
 
   function clearPhoto(key: string) {
@@ -974,6 +1026,8 @@ export default function ShowcasePage() {
                     preview={photo.preview}
                     previewCacheKey={photo.previewCacheKey}
                     onPick={(file) => beginCrop(file, photo.key)}
+                    onEdit={() => void editExistingPhoto(photo)}
+                    editing={editingPhotoKey === photo.key}
                     onClear={() => clearPhoto(photo.key)}
                   />
                 ))}
@@ -986,7 +1040,7 @@ export default function ShowcasePage() {
                 )}
               </div>
               <p className="text-[11px] text-[#8c8c8c]">
-                Best size 1200×1200px square · crop &amp; 360° rotate before upload · up to {MAX_PHOTOS} photos
+                Photo ကို နှိပ်ပြီး Crop &amp; Rotate / Replace / Remove လုပ်နိုင်သည် · up to {MAX_PHOTOS} photos
               </p>
             </div>
 
