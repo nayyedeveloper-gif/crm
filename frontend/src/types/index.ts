@@ -317,6 +317,25 @@ export interface BackupJobResponse {
   destinationPath: string | null;
 }
 
+export interface N8nWebhookConfigResponse {
+  enabled: boolean;
+  outboundUrl: string | null;
+  hasSecret: boolean;
+  events: string[];
+  inboundEnabled: boolean;
+  inboundPath: string;
+  lastDeliveryAt: string | null;
+  lastDeliveryStatus: string | null;
+  lastDeliveryError: string | null;
+  availableEvents: string[];
+}
+
+export interface N8nWebhookTestResponse {
+  success: boolean;
+  statusCode: number;
+  message: string;
+}
+
 export interface AppSettingsResponse {
   appName: string;
   appVersion: string;

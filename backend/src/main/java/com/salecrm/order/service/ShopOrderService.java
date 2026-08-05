@@ -11,6 +11,7 @@ import com.salecrm.order.entity.ShopOrder;
 import com.salecrm.order.repository.ShopOrderRepository;
 import com.salecrm.settings.entity.AppSettings;
 import com.salecrm.settings.repository.AppSettingsRepository;
+import com.salecrm.webhook.service.N8nWebhookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class ShopOrderService {
     private final AppSettingsRepository appSettingsRepository;
     private final ObjectMapper objectMapper;
     private final AuditLogService auditLogService;
+    private final N8nWebhookService n8nWebhookService;
 
     @Transactional
     public ShopOrderResponse create(ShopOrderCreateRequest request) {
@@ -87,7 +89,9 @@ public class ShopOrderService {
         auditLogService.change("SHOP_ORDERS", "CREATE",
                 "Order " + saved.getOrderCode() + " from " + saved.getCustomerName(),
                 "status=" + saved.getStatus());
-        return toResponse(saved);
+        ShopOrderResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("order.created", response);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -132,7 +136,9 @@ public class ShopOrderService {
         ShopOrder saved = orderRepository.save(order);
         auditLogService.change("SHOP_ORDERS", "STATUS",
                 "Order " + saved.getOrderCode() + " → " + normalized, saved.getTrackingNumber());
-        return toResponse(saved);
+        ShopOrderResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("order.status", response);
+        return response;
     }
 
     @Transactional(readOnly = true)

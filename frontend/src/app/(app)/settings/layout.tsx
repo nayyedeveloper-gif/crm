@@ -15,6 +15,7 @@ import {
   Activity,
   UserCircle,
   Store,
+  Webhook,
 } from 'lucide-react';
 
 const NAV = [
@@ -24,6 +25,7 @@ const NAV = [
   { href: '/settings/users', label: 'Users', short: 'Users', icon: Users, permission: 'USERS_MANAGE' },
   { href: '/settings/permissions', label: 'Permission & Access', short: 'Access', icon: ShieldCheck, permission: 'PERMISSIONS_MANAGE' },
   { href: '/settings/backup', label: 'Backup', short: 'Backup', icon: DatabaseBackup, permission: 'BACKUP_MANAGE' },
+  { href: '/settings/webhooks', label: 'n8n Webhooks', short: 'n8n', icon: Webhook, permission: CRM_PERMISSION_KEYS.settingsGeneral },
   { href: '/settings/change-logs', label: 'Change Logs', short: 'Changes', icon: ScrollText, permission: 'CHANGE_LOGS_VIEW' },
   { href: '/settings/system-logs', label: 'System Logs', short: 'System', icon: Activity, permission: 'SYSTEM_LOGS_VIEW' },
   { href: '/settings/general', label: 'General', short: 'General', icon: Building2, permission: CRM_PERMISSION_KEYS.settingsGeneral },

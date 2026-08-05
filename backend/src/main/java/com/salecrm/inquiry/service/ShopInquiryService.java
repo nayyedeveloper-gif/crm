@@ -9,6 +9,7 @@ import com.salecrm.inquiry.dto.ShopInquiryResponse;
 import com.salecrm.inquiry.entity.ShopInquiry;
 import com.salecrm.inquiry.repository.ShopInquiryRepository;
 import com.salecrm.log.service.AuditLogService;
+import com.salecrm.webhook.service.N8nWebhookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,7 @@ public class ShopInquiryService {
     private final ShopInquiryRepository inquiryRepository;
     private final ObjectMapper objectMapper;
     private final AuditLogService auditLogService;
+    private final N8nWebhookService n8nWebhookService;
 
     @Transactional
     public ShopInquiryResponse submit(ShopInquiryRequest request) {
@@ -52,7 +54,9 @@ public class ShopInquiryService {
         auditLogService.change("SHOP_INQUIRIES", "CREATE",
                 "Inquiry from " + saved.getCustomerName() + " / " + saved.getPhone(),
                 "items=" + request.items().size());
-        return toResponse(saved);
+        ShopInquiryResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("inquiry.created", response);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -79,7 +83,9 @@ public class ShopInquiryService {
         ShopInquiry saved = inquiryRepository.save(inquiry);
         auditLogService.change("SHOP_INQUIRIES", "STATUS",
                 "Inquiry #" + id + " → " + normalized, null);
-        return toResponse(saved);
+        ShopInquiryResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("inquiry.status", response);
+        return response;
     }
 
     @Transactional

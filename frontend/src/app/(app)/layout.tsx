@@ -464,6 +464,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/settings/branches')) return 'Branches';
     if (pathname.startsWith('/settings/permissions')) return 'Permissions';
     if (pathname.startsWith('/settings/backup')) return 'Backup';
+    if (pathname.startsWith('/settings/webhooks')) return 'n8n Webhooks';
     if (pathname.startsWith('/settings/change-logs')) return 'Change Logs';
     if (pathname.startsWith('/settings/system-logs')) return 'System Logs';
     if (pathname.startsWith('/settings/general')) return 'General';

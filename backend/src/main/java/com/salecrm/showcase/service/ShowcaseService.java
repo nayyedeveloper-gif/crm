@@ -20,6 +20,7 @@ import com.salecrm.showcase.entity.ShowcaseSubcategory;
 import com.salecrm.showcase.repository.ShowcaseImageRepository;
 import com.salecrm.showcase.repository.ShowcaseItemRepository;
 import com.salecrm.showcase.util.JewelleryCategories;
+import com.salecrm.webhook.service.N8nWebhookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -54,6 +55,7 @@ public class ShowcaseService {
     private final ShowcaseImageStorage imageStorage;
     private final AuditLogService auditLogService;
     private final ShowcaseSubcategoryService subcategoryService;
+    private final N8nWebhookService n8nWebhookService;
 
     @Transactional(readOnly = true)
     public ShowcaseSummaryResponse summary() {
@@ -158,7 +160,9 @@ public class ShowcaseService {
         auditLogService.change("SHOWCASE", "CREATE",
                 "Showcase item: " + saved.getItemCode() + " @ " + branch.getCode(),
                 "id=" + saved.getId());
-        return toResponse(saved);
+        ShowcaseItemResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("showcase.created", response);
+        return response;
     }
 
     @Transactional
@@ -214,7 +218,9 @@ public class ShowcaseService {
         auditLogService.change("SHOWCASE", "UPDATE",
                 "Showcase item updated: " + saved.getItemCode(),
                 "id=" + saved.getId());
-        return toResponse(saved);
+        ShowcaseItemResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("showcase.updated", response);
+        return response;
     }
 
     @Transactional
@@ -224,10 +230,12 @@ public class ShowcaseService {
         for (ShowcaseImage img : item.getImages()) {
             imageStorage.deleteQuietly(img.getFilePath());
         }
+        String code = item.getItemCode();
         itemRepository.delete(item);
         auditLogService.change("SHOWCASE", "DELETE",
-                "Showcase item deleted: " + item.getItemCode(),
+                "Showcase item deleted: " + code,
                 "id=" + id);
+        n8nWebhookService.dispatch("showcase.deleted", Map.of("id", id, "itemCode", code));
     }
 
     @Transactional(readOnly = true)

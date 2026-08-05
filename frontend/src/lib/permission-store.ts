@@ -74,6 +74,7 @@ export function isPathAllowed(pathname: string, levels: Levels): boolean {
   if (pathname.startsWith('/settings/branches')) return can('BRANCHES_MANAGE');
   if (pathname.startsWith('/settings/permissions')) return can('PERMISSIONS_MANAGE');
   if (pathname.startsWith('/settings/backup')) return can('BACKUP_MANAGE');
+  if (pathname.startsWith('/settings/webhooks')) return can(CRM_PERMISSION_KEYS.settingsGeneral);
   if (pathname.startsWith('/settings/sales-data')) return can('SALES_IMPORT');
   if (pathname.startsWith('/settings/change-logs')) return can('CHANGE_LOGS_VIEW');
   if (pathname.startsWith('/settings/system-logs')) return can('SYSTEM_LOGS_VIEW');

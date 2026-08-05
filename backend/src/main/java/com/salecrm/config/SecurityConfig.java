@@ -47,6 +47,7 @@ public class SecurityConfig {
             "/public/inquiries/**",
             "/public/orders/**",
             "/actuator/health/**",
+            "/webhooks/n8n/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html"

@@ -19,6 +19,7 @@ import com.salecrm.sales.support.SalesBranchMapper;
 import com.salecrm.sales.support.SalesRowMapper;
 import com.salecrm.security.SecurityUtils;
 import com.salecrm.security.UserPrincipal;
+import com.salecrm.webhook.service.N8nWebhookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class SalesService {
     private final SalesMonthlyTargetRepository targetRepository;
     private final BranchRepository branchRepository;
     private final ObjectMapper objectMapper;
+    private final N8nWebhookService n8nWebhookService;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listTransactions(LocalDate from, LocalDate to) {
@@ -87,7 +89,9 @@ public class SalesService {
                 .build();
 
         SalesTransaction saved = transactionRepository.save(entity);
-        return SalesRowMapper.toDataRow(saved);
+        Map<String, Object> row = SalesRowMapper.toDataRow(saved);
+        n8nWebhookService.dispatch("sales.created", row);
+        return row;
     }
 
     @Transactional(readOnly = true)
