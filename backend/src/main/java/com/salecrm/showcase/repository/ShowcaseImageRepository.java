@@ -1,5 +1,6 @@
 package com.salecrm.showcase.repository;
 
+import com.salecrm.showcase.dto.ShowcaseImageRow;
 import com.salecrm.showcase.entity.ShowcaseImage;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

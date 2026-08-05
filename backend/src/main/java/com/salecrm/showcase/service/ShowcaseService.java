@@ -473,7 +473,14 @@ public class ShowcaseService {
 
     private ShowcaseItemResponse toResponse(ShowcaseItem item) {
         List<ShowcaseImage> all = item.getImages();
-        return toResponse(item, all, all.size());
+        List<ShowcaseImageResponse> imageResponses = all.stream()
+                .map(img -> new ShowcaseImageResponse(
+                        img.getId(),
+                        "/showcase/" + item.getId() + "/images/" + img.getId(),
+                        "/showcase/" + item.getId() + "/images/" + img.getId() + "?size=thumb",
+                        img.getSortOrder()))
+                .toList();
+        return buildResponse(item, imageResponses, all.size());
     }
 
     private ShowcaseItemResponse toListResponse(ShowcaseItem item, ShowcaseImageRow cover, int imageCount) {
@@ -484,21 +491,10 @@ public class ShowcaseService {
                         "/showcase/" + item.getId() + "/images/" + cover.imageId(),
                         "/showcase/" + item.getId() + "/images/" + cover.imageId() + "?size=thumb",
                         cover.sortOrder()));
-        return toResponse(item, images, imageCount);
+        return buildResponse(item, images, imageCount);
     }
 
-    private ShowcaseItemResponse toResponse(ShowcaseItem item, List<ShowcaseImage> images, int imageCount) {
-        List<ShowcaseImageResponse> imageResponses = images.stream()
-                .map(img -> new ShowcaseImageResponse(
-                        img.getId(),
-                        "/showcase/" + item.getId() + "/images/" + img.getId(),
-                        "/showcase/" + item.getId() + "/images/" + img.getId() + "?size=thumb",
-                        img.getSortOrder()))
-                .toList();
-        return toResponse(item, imageResponses, imageCount);
-    }
-
-    private ShowcaseItemResponse toResponse(
+    private ShowcaseItemResponse buildResponse(
             ShowcaseItem item, List<ShowcaseImageResponse> imageResponses, int imageCount) {
         Branch b = item.getBranch();
         Long categoryId = item.getCategoryEntity() != null ? item.getCategoryEntity().getId() : null;
