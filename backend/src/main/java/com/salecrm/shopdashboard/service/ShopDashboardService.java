@@ -236,6 +236,8 @@ public class ShopDashboardService {
                 o.getTrackingNumber(),
                 o.getPaymentMethod(),
                 o.getPaymentRef(),
+                o.getPaymentStatus() != null ? o.getPaymentStatus() : "UNPAID",
+                o.getTelegramChatId(),
                 o.getCreatedAt(),
                 o.getUpdatedAt()
         );
