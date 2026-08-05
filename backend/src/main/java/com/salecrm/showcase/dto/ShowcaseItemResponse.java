@@ -21,6 +21,8 @@ public record ShowcaseItemResponse(
         BigDecimal weightGram,
         BigDecimal stoneCarat,
         boolean active,
+        /** Total photos; list may only include the cover in {@code images}. */
+        int imageCount,
         List<ShowcaseImageResponse> images,
         Instant createdAt,
         Instant updatedAt

@@ -12,6 +12,7 @@ import com.salecrm.security.SecurityUtils;
 import com.salecrm.security.UserPrincipal;
 import com.salecrm.showcase.dto.ShowcaseBranchSummary;
 import com.salecrm.showcase.dto.ShowcaseImageResponse;
+import com.salecrm.showcase.dto.ShowcaseImageRow;
 import com.salecrm.showcase.dto.ShowcaseItemResponse;
 import com.salecrm.showcase.dto.ShowcaseSummaryResponse;
 import com.salecrm.showcase.entity.ShowcaseImage;
@@ -101,9 +102,24 @@ public class ShowcaseService {
         List<ShowcaseItem> items = query == null
                 ? itemRepository.findAllForBranch(effective)
                 : itemRepository.searchForBranch(effective, query);
-        return items.stream()
+        items = items.stream()
                 .sorted((a, b) -> b.getUpdatedAt().compareTo(a.getUpdatedAt()))
-                .map(this::toResponse)
+                .toList();
+        if (items.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = items.stream().map(ShowcaseItem::getId).toList();
+        Map<Long, ShowcaseImageRow> coverByItem = new HashMap<>();
+        Map<Long, Integer> countByItem = new HashMap<>();
+        for (ShowcaseImageRow row : imageRepository.findRowsByItemIdIn(ids)) {
+            countByItem.merge(row.itemId(), 1, Integer::sum);
+            coverByItem.putIfAbsent(row.itemId(), row);
+        }
+        return items.stream()
+                .map(item -> toListResponse(
+                        item,
+                        coverByItem.get(item.getId()),
+                        countByItem.getOrDefault(item.getId(), 0)))
                 .toList();
     }
 
@@ -456,6 +472,34 @@ public class ShowcaseService {
     }
 
     private ShowcaseItemResponse toResponse(ShowcaseItem item) {
+        List<ShowcaseImage> all = item.getImages();
+        return toResponse(item, all, all.size());
+    }
+
+    private ShowcaseItemResponse toListResponse(ShowcaseItem item, ShowcaseImageRow cover, int imageCount) {
+        List<ShowcaseImageResponse> images = cover == null
+                ? List.of()
+                : List.of(new ShowcaseImageResponse(
+                        cover.imageId(),
+                        "/showcase/" + item.getId() + "/images/" + cover.imageId(),
+                        "/showcase/" + item.getId() + "/images/" + cover.imageId() + "?size=thumb",
+                        cover.sortOrder()));
+        return toResponse(item, images, imageCount);
+    }
+
+    private ShowcaseItemResponse toResponse(ShowcaseItem item, List<ShowcaseImage> images, int imageCount) {
+        List<ShowcaseImageResponse> imageResponses = images.stream()
+                .map(img -> new ShowcaseImageResponse(
+                        img.getId(),
+                        "/showcase/" + item.getId() + "/images/" + img.getId(),
+                        "/showcase/" + item.getId() + "/images/" + img.getId() + "?size=thumb",
+                        img.getSortOrder()))
+                .toList();
+        return toResponse(item, imageResponses, imageCount);
+    }
+
+    private ShowcaseItemResponse toResponse(
+            ShowcaseItem item, List<ShowcaseImageResponse> imageResponses, int imageCount) {
         Branch b = item.getBranch();
         Long categoryId = item.getCategoryEntity() != null ? item.getCategoryEntity().getId() : null;
         String categoryName = item.getCategoryEntity() != null
@@ -465,13 +509,6 @@ public class ShowcaseService {
         String subCategoryName = item.getSubcategoryEntity() != null
                 ? item.getSubcategoryEntity().getName()
                 : item.getSubCategory();
-        List<ShowcaseImageResponse> images = item.getImages().stream()
-                .map(img -> new ShowcaseImageResponse(
-                        img.getId(),
-                        "/showcase/" + item.getId() + "/images/" + img.getId(),
-                        "/showcase/" + item.getId() + "/images/" + img.getId() + "?size=thumb",
-                        img.getSortOrder()))
-                .toList();
         return new ShowcaseItemResponse(
                 item.getId(),
                 b.getId(),
@@ -489,7 +526,8 @@ public class ShowcaseService {
                 item.getWeightGram(),
                 item.getStoneCarat(),
                 item.isActive(),
-                images,
+                imageCount,
+                imageResponses,
                 item.getCreatedAt(),
                 item.getUpdatedAt()
         );

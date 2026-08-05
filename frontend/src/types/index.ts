@@ -124,6 +124,8 @@ export interface ShowcaseItemResponse {
   weightGram: number | null;
   stoneCarat: number | null;
   active: boolean;
+  /** Total photos; list payloads may only include the cover in images. */
+  imageCount?: number;
   images: ShowcaseImageResponse[];
   createdAt: string;
   updatedAt: string;

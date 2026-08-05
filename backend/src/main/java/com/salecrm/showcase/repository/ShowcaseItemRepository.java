@@ -21,9 +21,9 @@ public interface ShowcaseItemRepository extends JpaRepository<ShowcaseItem, Long
             """)
     Optional<ShowcaseItem> findWithDetailsById(@Param("id") Long id);
 
+    /** List grid — no image collection fetch (cover loaded separately). */
     @Query("""
-            SELECT DISTINCT i FROM ShowcaseItem i
-            LEFT JOIN FETCH i.images
+            SELECT i FROM ShowcaseItem i
             JOIN FETCH i.branch
             LEFT JOIN FETCH i.categoryEntity
             LEFT JOIN FETCH i.subcategoryEntity
@@ -32,8 +32,7 @@ public interface ShowcaseItemRepository extends JpaRepository<ShowcaseItem, Long
     List<ShowcaseItem> findAllForBranch(@Param("branchId") Long branchId);
 
     @Query("""
-            SELECT DISTINCT i FROM ShowcaseItem i
-            LEFT JOIN FETCH i.images
+            SELECT i FROM ShowcaseItem i
             JOIN FETCH i.branch
             LEFT JOIN FETCH i.categoryEntity
             LEFT JOIN FETCH i.subcategoryEntity

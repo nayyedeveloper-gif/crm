@@ -57,6 +57,8 @@ import {
 import { cn } from '@/lib/utils';
 
 const MAX_PHOTOS = 12;
+/** Render this many cards first; grow as the user scrolls. */
+const GRID_BATCH = 48;
 
 function formatMmk(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '';
@@ -353,6 +355,7 @@ export default function ShowcasePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [items, setItems] = useState<ShowcaseItemResponse[]>([]);
+  const [visibleCount, setVisibleCount] = useState(GRID_BATCH);
   const [branches, setBranches] = useState<ShowcaseBranchSummary[]>([]);
   const [categories, setCategories] = useState<ProductCategoryResponse[]>([]);
   const [subcategories, setSubcategories] = useState<ShowcaseSubcategoryResponse[]>([]);
@@ -376,6 +379,15 @@ export default function ShowcasePage() {
   const [cropReplaceKey, setCropReplaceKey] = useState<string | null>(null);
   const [editingPhotoKey, setEditingPhotoKey] = useState<string | null>(null);
   const [showSpecs, setShowSpecs] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  const photoCount = (item: ShowcaseItemResponse) =>
+    item.imageCount ?? item.images.length;
+
+  const fetchFullItem = useCallback(async (id: number) => {
+    const { data } = await api.get<ApiResponse<ShowcaseItemResponse>>(`/showcase/${id}`);
+    return data.data;
+  }, []);
 
   const defaultBranchId = useMemo(() => {
     if (user?.branchId) return String(user.branchId);
@@ -385,6 +397,11 @@ export default function ShowcasePage() {
   const activeCategories = useMemo(
     () => categories.filter((c) => c.active),
     [categories]
+  );
+
+  const visibleItems = useMemo(
+    () => items.slice(0, visibleCount),
+    [items, visibleCount]
   );
 
   const defaultCategoryId = useMemo(
@@ -460,6 +477,7 @@ export default function ShowcasePage() {
       setBranches(sumRes.data.data?.branches || []);
       setTotalItems(sumRes.data.data?.totalItems || 0);
       setItems(listRes.data.data || []);
+      setVisibleCount(GRID_BATCH);
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ||
@@ -474,6 +492,25 @@ export default function ShowcasePage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el || visibleCount >= items.length) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisibleCount(items.length);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleCount((n) => Math.min(n + GRID_BATCH, items.length));
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleCount, items.length]);
+
   function openCreate() {
     setEditId(null);
     setForm(emptyForm(defaultBranchId, defaultCategoryId));
@@ -481,30 +518,45 @@ export default function ShowcasePage() {
     setOpen(true);
   }
 
-  function openEdit(item: ShowcaseItemResponse) {
-    setEditId(item.id);
-    setForm({
-      branchId: String(item.branchId),
-      itemCode: item.itemCode,
-      name: item.name,
-      categoryId: item.categoryId != null ? String(item.categoryId) : defaultCategoryId,
-      subcategoryId: item.subcategoryId != null ? String(item.subcategoryId) : '',
-      description: item.description || '',
-      priceMmk: item.priceMmk != null ? String(item.priceMmk) : '',
-      metalPurity: item.metalPurity || '',
-      weightGram: item.weightGram != null ? String(item.weightGram) : '',
-      stoneCarat: item.stoneCarat != null ? String(item.stoneCarat) : '',
-      active: item.active,
-      photos: item.images.map((img) => ({
-        key: `ex-${img.id}`,
-        preview: img.url,
-        previewCacheKey: item.updatedAt,
-        existingId: img.id,
-      })),
-      removeImageIds: [],
-    });
-    setShowSpecs(hasSpecData(item));
-    setOpen(true);
+  async function openEdit(item: ShowcaseItemResponse) {
+    try {
+      const full = await fetchFullItem(item.id);
+      setEditId(full.id);
+      setForm({
+        branchId: String(full.branchId),
+        itemCode: full.itemCode,
+        name: full.name,
+        categoryId: full.categoryId != null ? String(full.categoryId) : defaultCategoryId,
+        subcategoryId: full.subcategoryId != null ? String(full.subcategoryId) : '',
+        description: full.description || '',
+        priceMmk: full.priceMmk != null ? String(full.priceMmk) : '',
+        metalPurity: full.metalPurity || '',
+        weightGram: full.weightGram != null ? String(full.weightGram) : '',
+        stoneCarat: full.stoneCarat != null ? String(full.stoneCarat) : '',
+        active: full.active,
+        photos: full.images.map((img) => ({
+          key: `ex-${img.id}`,
+          preview: img.url,
+          previewCacheKey: full.updatedAt,
+          existingId: img.id,
+        })),
+        removeImageIds: [],
+      });
+      setShowSpecs(hasSpecData(full));
+      setOpen(true);
+    } catch {
+      setError('Failed to load item for edit');
+    }
+  }
+
+  async function openView(item: ShowcaseItemResponse) {
+    try {
+      const full = await fetchFullItem(item.id);
+      setViewItem(full);
+      setZoomIndex(null);
+    } catch {
+      setError('Failed to load item');
+    }
   }
 
   function beginCrop(file: File, replaceKey: string | null = null) {
@@ -693,11 +745,13 @@ export default function ShowcasePage() {
   }
 
   async function handleDownload(item: ShowcaseItemResponse) {
-    if (!item.images.length) return;
+    if (photoCount(item) === 0) return;
     setDownloading(item.id);
     setError('');
     try {
-      await downloadShowcasePhotos(item);
+      const full =
+        item.images.length >= photoCount(item) ? item : await fetchFullItem(item.id);
+      await downloadShowcasePhotos(full);
     } catch {
       setError('Download failed');
     } finally {
@@ -906,17 +960,14 @@ export default function ShowcasePage() {
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
                 <div
                   key={item.id}
                   className="overflow-hidden rounded-xl border border-[#e8e8e8] bg-white dark:border-neutral-800 dark:bg-neutral-900"
                 >
                   <button
                     type="button"
-                    onClick={() => {
-                      setViewItem(item);
-                      setZoomIndex(null);
-                    }}
+                    onClick={() => void openView(item)}
                     className="aspect-square w-full bg-[#f5f5f5] dark:bg-neutral-950"
                   >
                     {item.images[0] ? (
@@ -969,7 +1020,7 @@ export default function ShowcasePage() {
                       <p className="line-clamp-2 text-xs text-[#8c8c8c]">{item.description}</p>
                     )}
                     <p className="text-xs text-[#595959]">
-                      {item.images.length} photo{item.images.length === 1 ? '' : 's'}
+                      {photoCount(item)} photo{photoCount(item) === 1 ? '' : 's'}
                     </p>
                     <div className="grid grid-cols-2 gap-1.5 pt-1">
                       <Button
@@ -977,10 +1028,7 @@ export default function ShowcasePage() {
                         variant="outline"
                         size="sm"
                         className="h-8"
-                        onClick={() => {
-                          setViewItem(item);
-                          setZoomIndex(null);
-                        }}
+                        onClick={() => void openView(item)}
                       >
                         <Eye className="h-3 w-3" />
                         View
@@ -990,7 +1038,7 @@ export default function ShowcasePage() {
                         variant="outline"
                         size="sm"
                         className="h-8"
-                        disabled={!item.images.length || downloading === item.id}
+                        disabled={photoCount(item) === 0 || downloading === item.id}
                         onClick={() => void handleDownload(item)}
                       >
                         {downloading === item.id ? (
@@ -1005,7 +1053,7 @@ export default function ShowcasePage() {
                         variant="outline"
                         size="sm"
                         className="h-8"
-                        onClick={() => openEdit(item)}
+                        onClick={() => void openEdit(item)}
                       >
                         <Pencil className="h-3 w-3" />
                         Edit
@@ -1025,6 +1073,14 @@ export default function ShowcasePage() {
                 </div>
               ))}
           </div>
+          {visibleCount < items.length && (
+            <div
+              ref={loadMoreRef}
+              className="flex items-center justify-center py-6 text-xs text-[#8c8c8c]"
+            >
+              Showing {visibleCount} of {items.length}…
+            </div>
+          )}
         </div>
       )}
 

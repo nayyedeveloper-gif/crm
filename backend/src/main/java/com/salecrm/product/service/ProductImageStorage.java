@@ -23,6 +23,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -155,14 +156,69 @@ public class ProductImageStorage {
     public boolean ensureThumbForRelative(String relativePath) {
         try {
             Path full = resolve(relativePath, false);
-            Path thumb = thumbPathBeside(full);
-            if (Files.isRegularFile(thumb)) return false;
-            ensureThumb(full, thumb);
-            return Files.isRegularFile(thumb);
+            return ensureThumbBeside(full);
         } catch (Exception ex) {
             log.warn("Product thumb backfill failed for {}: {}", relativePath, ex.toString());
             return false;
         }
+    }
+
+    public ThumbBackfillStats backfillMissingThumbs() {
+        Path root = Path.of(imageDir).toAbsolutePath().normalize();
+        int scanned = 0;
+        int created = 0;
+        int skipped = 0;
+        int failed = 0;
+        if (!Files.isDirectory(root)) {
+            return new ThumbBackfillStats(0, 0, 0, 0);
+        }
+        try (var walk = Files.walk(root)) {
+            List<Path> fulls = walk
+                    .filter(Files::isRegularFile)
+                    .filter(p -> {
+                        String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
+                        return (n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png")
+                                || n.endsWith(".webp") || n.endsWith(".gif"))
+                                && !n.endsWith(".thumb.jpg");
+                    })
+                    .toList();
+            for (Path full : fulls) {
+                scanned++;
+                Path thumb = thumbPathBeside(full);
+                if (Files.isRegularFile(thumb)) {
+                    skipped++;
+                    continue;
+                }
+                try {
+                    if (ensureThumbBeside(full)) {
+                        created++;
+                    } else {
+                        failed++;
+                    }
+                } catch (Exception ex) {
+                    failed++;
+                    log.warn("Product thumb backfill failed for {}: {}", full, ex.toString());
+                }
+                if (scanned % 200 == 0) {
+                    log.info("Product thumb backfill progress: scanned={} created={} skipped={} failed={}",
+                            scanned, created, skipped, failed);
+                }
+            }
+        } catch (IOException ex) {
+            log.error("Product thumb backfill walk failed", ex);
+        }
+        log.info("Product thumb backfill done: scanned={} created={} skipped={} failed={}",
+                scanned, created, skipped, failed);
+        return new ThumbBackfillStats(scanned, created, skipped, failed);
+    }
+
+    public record ThumbBackfillStats(int scanned, int created, int skipped, int failed) {}
+
+    private boolean ensureThumbBeside(Path full) throws IOException {
+        Path thumb = thumbPathBeside(full);
+        if (Files.isRegularFile(thumb)) return false;
+        ensureThumb(full, thumb);
+        return Files.isRegularFile(thumb);
     }
 
     private static void ensureThumb(Path full, Path thumb) throws IOException {
