@@ -32,8 +32,11 @@ import java.util.UUID;
 public class ShowcaseImageStorage {
 
     public static final int IMAGE_SIZE = 1200;
+    /** Grid / list cards — much smaller payloads than full 1200px. */
+    public static final int THUMB_SIZE = 480;
     private static final Color CANVAS_BG = new Color(0xf2, 0xf2, 0xf7);
     private static final float JPEG_QUALITY = 0.88f;
+    private static final float THUMB_JPEG_QUALITY = 0.82f;
     private static final Set<String> ALLOWED = Set.of(
             "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif");
     private static final long MAX_BYTES = 8L * 1024 * 1024;
@@ -69,7 +72,9 @@ public class ShowcaseImageStorage {
                 source = ImageIO.read(in);
             }
             if (source != null) {
-                writeJpeg(toSquare(source), target);
+                BufferedImage full = toSquare(source, IMAGE_SIZE);
+                writeJpeg(full, target, JPEG_QUALITY);
+                writeJpeg(toSquare(source, THUMB_SIZE), thumbPathBeside(target), THUMB_JPEG_QUALITY);
             } else {
                 String ext = extensionFor(contentType, file.getOriginalFilename());
                 filename = "img-" + UUID.randomUUID().toString().substring(0, 8) + ext;
@@ -88,28 +93,82 @@ public class ShowcaseImageStorage {
     }
 
     public Path resolve(String relativePath) {
+        return resolve(relativePath, false);
+    }
+
+    public Path resolve(String relativePath, boolean thumb) {
         if (relativePath == null || relativePath.isBlank()) {
             throw new BusinessException("Image not found", HttpStatus.NOT_FOUND);
         }
         Path root = Path.of(imageDir).toAbsolutePath().normalize();
-        Path path = root.resolve(relativePath).normalize();
-        if (!path.startsWith(root) || !Files.isRegularFile(path)) {
+        Path full = root.resolve(relativePath).normalize();
+        if (!full.startsWith(root) || !Files.isRegularFile(full)) {
             throw new BusinessException("Image not found", HttpStatus.NOT_FOUND);
         }
-        return path;
+        if (!thumb) {
+            return full;
+        }
+        Path thumbPath = thumbPathBeside(full);
+        if (Files.isRegularFile(thumbPath)) {
+            return thumbPath;
+        }
+        try {
+            ensureThumb(full, thumbPath);
+            if (Files.isRegularFile(thumbPath)) {
+                return thumbPath;
+            }
+        } catch (Exception ex) {
+            log.warn("Thumb generate failed for {}: {}", relativePath, ex.toString());
+        }
+        return full;
     }
 
     public void deleteQuietly(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) return;
         try {
-            Files.deleteIfExists(resolve(relativePath));
+            Path full = resolve(relativePath, false);
+            Files.deleteIfExists(full);
+            Files.deleteIfExists(thumbPathBeside(full));
         } catch (Exception ignored) {
             // best-effort
         }
     }
 
+    /** Backfill missing .thumb.jpg beside an existing full image. */
+    public boolean ensureThumbForRelative(String relativePath) {
+        try {
+            Path full = resolve(relativePath, false);
+            Path thumb = thumbPathBeside(full);
+            if (Files.isRegularFile(thumb)) return false;
+            ensureThumb(full, thumb);
+            return Files.isRegularFile(thumb);
+        } catch (Exception ex) {
+            log.warn("Thumb backfill failed for {}: {}", relativePath, ex.toString());
+            return false;
+        }
+    }
+
+    private static void ensureThumb(Path full, Path thumb) throws IOException {
+        BufferedImage source;
+        try (InputStream in = Files.newInputStream(full)) {
+            source = ImageIO.read(in);
+        }
+        if (source == null) return;
+        writeJpeg(toSquare(source, THUMB_SIZE), thumb, THUMB_JPEG_QUALITY);
+    }
+
+    static Path thumbPathBeside(Path full) {
+        String name = full.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        String thumbName = (dot > 0 ? name.substring(0, dot) : name) + ".thumb.jpg";
+        return full.resolveSibling(thumbName);
+    }
+
     static BufferedImage toSquare(BufferedImage source) {
-        int size = IMAGE_SIZE;
+        return toSquare(source, IMAGE_SIZE);
+    }
+
+    static BufferedImage toSquare(BufferedImage source, int size) {
         BufferedImage canvas = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = canvas.createGraphics();
         try {
@@ -128,7 +187,7 @@ public class ShowcaseImageStorage {
         return canvas;
     }
 
-    private static void writeJpeg(BufferedImage image, Path target) throws IOException {
+    private static void writeJpeg(BufferedImage image, Path target, float quality) throws IOException {
         Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
         if (!writers.hasNext()) {
             throw new IOException("No JPEG writer");
@@ -137,7 +196,7 @@ public class ShowcaseImageStorage {
         ImageWriteParam param = writer.getDefaultWriteParam();
         if (param.canWriteCompressed()) {
             param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionQuality(JPEG_QUALITY);
+            param.setCompressionQuality(quality);
         }
         try (OutputStream out = Files.newOutputStream(target);
              ImageOutputStream ios = ImageIO.createImageOutputStream(out)) {

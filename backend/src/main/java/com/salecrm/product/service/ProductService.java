@@ -243,13 +243,18 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Resource loadPublicImage(String publicCode, ProductImageSlot slot) {
+        return loadPublicImage(publicCode, slot, false);
+    }
+
+    @Transactional(readOnly = true)
+    public Resource loadPublicImage(String publicCode, ProductImageSlot slot, boolean thumb) {
         Product product = productRepository.findByPublicCode(publicCode.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Product", publicCode));
         String relative = pathForSlot(product, slot);
         if (!StringUtils.hasText(relative)) {
             throw new BusinessException("Image not found", HttpStatus.NOT_FOUND);
         }
-        Path path = imageStorage.resolve(relative);
+        Path path = imageStorage.resolve(relative, thumb);
         return new FileSystemResource(path);
     }
 

@@ -54,14 +54,15 @@ public class PublicProductController {
     @GetMapping("/{publicCode}/images/{slot}")
     public ResponseEntity<Resource> image(
             @PathVariable String publicCode,
-            @PathVariable String slot) throws java.io.IOException {
+            @PathVariable String slot,
+            @RequestParam(value = "size", required = false) String size) throws java.io.IOException {
         ProductImageSlot imageSlot = ProductImageSlot.from(slot);
-        Resource resource = productService.loadPublicImage(publicCode, imageSlot);
+        boolean thumb = size != null && size.equalsIgnoreCase("thumb");
+        Resource resource = productService.loadPublicImage(publicCode, imageSlot, thumb);
         String filename = resource.getFilename() != null ? resource.getFilename() : "image.jpg";
         long lastModified = resource.lastModified();
         return ResponseEntity.ok()
-                // Short cache + must-revalidate so replaced photos show up after save
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300, must-revalidate")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=604800, stale-while-revalidate=86400")
                 .lastModified(lastModified > 0 ? lastModified : System.currentTimeMillis())
                 .contentType(ProductService.mediaTypeFor(filename))
                 .body(resource);

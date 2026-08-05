@@ -103,11 +103,15 @@ public class ShowcaseController {
     }
 
     @GetMapping("/{id}/images/{imageId}")
-    public ResponseEntity<Resource> image(@PathVariable Long id, @PathVariable Long imageId) {
-        Resource resource = showcaseService.loadImage(id, imageId);
+    public ResponseEntity<Resource> image(
+            @PathVariable Long id,
+            @PathVariable Long imageId,
+            @RequestParam(value = "size", required = false) String size) {
+        boolean thumb = size != null && size.equalsIgnoreCase("thumb");
+        Resource resource = showcaseService.loadImage(id, imageId, thumb);
         String filename = resource.getFilename() != null ? resource.getFilename() : "image.jpg";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=86400")
                 .contentType(ShowcaseService.mediaTypeFor(filename))
                 .body(resource);
     }

@@ -240,10 +240,15 @@ public class ShowcaseService {
 
     @Transactional(readOnly = true)
     public Resource loadImage(Long itemId, Long imageId) {
+        return loadImage(itemId, imageId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public Resource loadImage(Long itemId, Long imageId, boolean thumb) {
         ShowcaseImage image = imageRepository.findForItem(itemId, imageId)
                 .orElseThrow(() -> new ResourceNotFoundException("ShowcaseImage", imageId));
         ensureBranchAccess(image.getItem().getBranch().getId());
-        Path path = imageStorage.resolve(image.getFilePath());
+        Path path = imageStorage.resolve(image.getFilePath(), thumb);
         return new FileSystemResource(path);
     }
 
@@ -464,6 +469,7 @@ public class ShowcaseService {
                 .map(img -> new ShowcaseImageResponse(
                         img.getId(),
                         "/showcase/" + item.getId() + "/images/" + img.getId(),
+                        "/showcase/" + item.getId() + "/images/" + img.getId() + "?size=thumb",
                         img.getSortOrder()))
                 .toList();
         return new ShowcaseItemResponse(

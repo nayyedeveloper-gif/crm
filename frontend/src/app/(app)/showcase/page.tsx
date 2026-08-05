@@ -70,6 +70,15 @@ function purityOptionsFor(kind: ReturnType<typeof jewelleryKind>): string[] {
   return ['၁၅ ပဲရည်', '၁၆ ပဲရည်', '18K', '22K', 'PT950', 'Silver'];
 }
 
+function hasSpecData(item: ShowcaseItemResponse): boolean {
+  return (
+    item.priceMmk != null ||
+    Boolean(item.metalPurity?.trim()) ||
+    item.weightGram != null ||
+    item.stoneCarat != null
+  );
+}
+
 type DraftPhoto = {
   key: string;
   preview: string;
@@ -366,6 +375,7 @@ export default function ShowcasePage() {
   const [cropFileName, setCropFileName] = useState('showcase.jpg');
   const [cropReplaceKey, setCropReplaceKey] = useState<string | null>(null);
   const [editingPhotoKey, setEditingPhotoKey] = useState<string | null>(null);
+  const [showSpecs, setShowSpecs] = useState(false);
 
   const defaultBranchId = useMemo(() => {
     if (user?.branchId) return String(user.branchId);
@@ -467,6 +477,7 @@ export default function ShowcasePage() {
   function openCreate() {
     setEditId(null);
     setForm(emptyForm(defaultBranchId, defaultCategoryId));
+    setShowSpecs(false);
     setOpen(true);
   }
 
@@ -492,6 +503,7 @@ export default function ShowcasePage() {
       })),
       removeImageIds: [],
     });
+    setShowSpecs(hasSpecData(item));
     setOpen(true);
   }
 
@@ -896,7 +908,7 @@ export default function ShowcasePage() {
                   >
                     {item.images[0] ? (
                       <AuthImage
-                        src={item.images[0].url}
+                        src={item.images[0].thumbUrl || item.images[0].url}
                         cacheKey={item.updatedAt}
                         alt={item.name}
                         className="h-full w-full object-contain"
@@ -1128,6 +1140,28 @@ export default function ShowcasePage() {
               />
             </div>
 
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-[#f0f0f0] bg-[#fafafa] px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-950">
+              <div>
+                <p className="text-sm font-medium text-[#262626] dark:text-neutral-100">
+                  Price &amp; specs
+                </p>
+                <p className="text-[11px] text-[#8c8c8c]">
+                  Optional — price, purity, weight, stone
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={() => setShowSpecs((v) => !v)}
+              >
+                {showSpecs ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+
+            {showSpecs && (
+              <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="sc-price">Price (MMK)</Label>
@@ -1185,6 +1219,8 @@ export default function ShowcasePage() {
                   onChange={(e) => setForm((f) => ({ ...f, stoneCarat: e.target.value }))}
                   placeholder="If gold piece has diamonds / stones"
                 />
+              </div>
+            )}
               </div>
             )}
 
@@ -1453,7 +1489,7 @@ export default function ShowcasePage() {
                             onClick={() => setZoomIndex(idx)}
                           >
                             <AuthImage
-                              src={img.url}
+                              src={img.thumbUrl || img.url}
                               cacheKey={viewItem.updatedAt}
                               alt={`${viewItem.name} ${idx + 1}`}
                               className="h-full w-full object-contain"

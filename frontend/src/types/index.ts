@@ -102,6 +102,8 @@ export interface BranchResponse {
 export interface ShowcaseImageResponse {
   id: number;
   url: string;
+  /** Smaller grid/list image; falls back to url if missing. */
+  thumbUrl?: string;
   sortOrder: number;
 }
 

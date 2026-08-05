@@ -471,7 +471,11 @@ export function ShopFooter({
  * (Spring CORS returns 403 and the image fails to load).
  * Paths that already include `/api` must not be prefixed again.
  */
-export function shopImageUrl(path: string | null | undefined, cacheKey?: string): string | null {
+export function shopImageUrl(
+  path: string | null | undefined,
+  cacheKey?: string,
+  size?: 'thumb' | 'full'
+): string | null {
   if (!path) return null;
   let pathname = path.trim();
   if (pathname.startsWith('http://') || pathname.startsWith('https://')) {
@@ -492,11 +496,11 @@ export function shopImageUrl(path: string | null | undefined, cacheKey?: string)
   if (!pathname.startsWith('/')) {
     pathname = `/${pathname}`;
   }
-  let url = `/api${pathname}`;
-  if (cacheKey) {
-    url = `${url}?v=${encodeURIComponent(cacheKey)}`;
-  }
-  return url;
+  const params = new URLSearchParams();
+  if (size === 'thumb') params.set('size', 'thumb');
+  if (cacheKey) params.set('v', cacheKey);
+  const qs = params.toString();
+  return qs ? `/api${pathname}?${qs}` : `/api${pathname}`;
 }
 
 /** Stable Front cover URL for cart / favourites (ignores stale absolute paths). */

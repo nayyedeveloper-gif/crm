@@ -248,7 +248,8 @@ function imageUrl(
   path: string | undefined,
   publicCode?: string,
   slot?: SlotKey | 'offer',
-  cacheKey?: string
+  cacheKey?: string,
+  size?: 'thumb' | 'full'
 ): string | null {
   let url: string | null = null;
   if (publicCode && slot) {
@@ -260,11 +261,12 @@ function imageUrl(
     else url = `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
   }
   if (!url) return null;
-  if (cacheKey) {
-    const sep = url.includes('?') ? '&' : '?';
-    return `${url}${sep}v=${encodeURIComponent(cacheKey)}`;
-  }
-  return url;
+  const params = new URLSearchParams();
+  if (size === 'thumb') params.set('size', 'thumb');
+  if (cacheKey) params.set('v', cacheKey);
+  const qs = params.toString();
+  if (!qs) return url;
+  return url.includes('?') ? `${url}&${qs}` : `${url}?${qs}`;
 }
 
 export default function ProductsPage() {
@@ -998,7 +1000,7 @@ export default function ProductsPage() {
                 (s) => p.images[s]
               );
               const cover = coverSlot
-                ? imageUrl(p.images[coverSlot], p.publicCode, coverSlot, p.updatedAt)
+                ? imageUrl(p.images[coverSlot], p.publicCode, coverSlot, p.updatedAt, 'thumb')
                 : null;
               return (
                 <article

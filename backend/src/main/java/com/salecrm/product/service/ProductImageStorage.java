@@ -37,11 +37,13 @@ import java.util.UUID;
 public class ProductImageStorage {
 
     public static final int SHOP_IMAGE_SIZE = 1200;
+    public static final int THUMB_SIZE = 480;
     /** Limited Offer hero — matches shop mobile aspect 4:5 (full-bleed cover). */
     public static final int OFFER_IMAGE_WIDTH = 1200;
     public static final int OFFER_IMAGE_HEIGHT = 1500;
     private static final Color CANVAS_BG = new Color(0xf2, 0xf2, 0xf7);
     private static final float JPEG_QUALITY = 0.88f;
+    private static final float THUMB_JPEG_QUALITY = 0.82f;
 
     private static final Set<String> ALLOWED = Set.of(
             "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif");
@@ -83,7 +85,12 @@ public class ProductImageStorage {
                 BufferedImage normalized = slot == ProductImageSlot.OFFER
                         ? toOfferBanner(source)
                         : toShopSquare(source);
-                writeJpeg(normalized, target);
+                writeJpeg(normalized, target, JPEG_QUALITY);
+                if (slot != ProductImageSlot.OFFER) {
+                    writeJpeg(toShopSquare(source, THUMB_SIZE), thumbPathBeside(target), THUMB_JPEG_QUALITY);
+                } else {
+                    writeJpeg(scaleOfferThumb(source), thumbPathBeside(target), THUMB_JPEG_QUALITY);
+                }
             } else {
                 // WebP / exotic formats without ImageIO plugin — keep original bytes
                 String ext = extensionFor(contentType, file.getOriginalFilename());
@@ -104,28 +111,86 @@ public class ProductImageStorage {
     }
 
     public Path resolve(String relativePath) {
+        return resolve(relativePath, false);
+    }
+
+    public Path resolve(String relativePath, boolean thumb) {
         if (relativePath == null || relativePath.isBlank()) {
             throw new BusinessException("Image not found", HttpStatus.NOT_FOUND);
         }
         Path root = Path.of(imageDir).toAbsolutePath().normalize();
-        Path path = root.resolve(relativePath).normalize();
-        if (!path.startsWith(root) || !Files.isRegularFile(path)) {
+        Path full = root.resolve(relativePath).normalize();
+        if (!full.startsWith(root) || !Files.isRegularFile(full)) {
             throw new BusinessException("Image not found", HttpStatus.NOT_FOUND);
         }
-        return path;
+        if (!thumb) {
+            return full;
+        }
+        Path thumbPath = thumbPathBeside(full);
+        if (Files.isRegularFile(thumbPath)) {
+            return thumbPath;
+        }
+        try {
+            ensureThumb(full, thumbPath);
+            if (Files.isRegularFile(thumbPath)) {
+                return thumbPath;
+            }
+        } catch (Exception ex) {
+            log.warn("Product thumb generate failed for {}: {}", relativePath, ex.toString());
+        }
+        return full;
     }
 
     public void deleteQuietly(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) return;
         try {
-            Files.deleteIfExists(resolve(relativePath));
+            Path full = resolve(relativePath, false);
+            Files.deleteIfExists(full);
+            Files.deleteIfExists(thumbPathBeside(full));
         } catch (Exception ignored) {
             // best-effort
         }
     }
 
+    public boolean ensureThumbForRelative(String relativePath) {
+        try {
+            Path full = resolve(relativePath, false);
+            Path thumb = thumbPathBeside(full);
+            if (Files.isRegularFile(thumb)) return false;
+            ensureThumb(full, thumb);
+            return Files.isRegularFile(thumb);
+        } catch (Exception ex) {
+            log.warn("Product thumb backfill failed for {}: {}", relativePath, ex.toString());
+            return false;
+        }
+    }
+
+    private static void ensureThumb(Path full, Path thumb) throws IOException {
+        BufferedImage source;
+        try (InputStream in = Files.newInputStream(full)) {
+            source = ImageIO.read(in);
+        }
+        if (source == null) return;
+        String name = full.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (name.startsWith("offer-")) {
+            writeJpeg(scaleOfferThumb(source), thumb, THUMB_JPEG_QUALITY);
+        } else {
+            writeJpeg(toShopSquare(source, THUMB_SIZE), thumb, THUMB_JPEG_QUALITY);
+        }
+    }
+
+    static Path thumbPathBeside(Path full) {
+        String name = full.getFileName().toString();
+        int dot = name.lastIndexOf('.');
+        String thumbName = (dot > 0 ? name.substring(0, dot) : name) + ".thumb.jpg";
+        return full.resolveSibling(thumbName);
+    }
+
     static BufferedImage toShopSquare(BufferedImage source) {
-        int size = SHOP_IMAGE_SIZE;
+        return toShopSquare(source, SHOP_IMAGE_SIZE);
+    }
+
+    static BufferedImage toShopSquare(BufferedImage source, int size) {
         BufferedImage canvas = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = canvas.createGraphics();
         try {
@@ -143,6 +208,26 @@ public class ProductImageStorage {
             int x = (size - w) / 2;
             int y = (size - h) / 2;
             g.drawImage(source, x, y, w, h, null);
+        } finally {
+            g.dispose();
+        }
+        return canvas;
+    }
+
+    private static BufferedImage scaleOfferThumb(BufferedImage source) {
+        int tw = 480;
+        int th = 600;
+        BufferedImage canvas = new BufferedImage(tw, th, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = canvas.createGraphics();
+        try {
+            g.setColor(CANVAS_BG);
+            g.fillRect(0, 0, tw, th);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            double scale = Math.max((double) tw / source.getWidth(), (double) th / source.getHeight());
+            int w = Math.max(1, (int) Math.round(source.getWidth() * scale));
+            int h = Math.max(1, (int) Math.round(source.getHeight() * scale));
+            g.drawImage(source, (tw - w) / 2, (th - h) / 2, w, h, null);
         } finally {
             g.dispose();
         }
@@ -176,7 +261,7 @@ public class ProductImageStorage {
         return canvas;
     }
 
-    private static void writeJpeg(BufferedImage image, Path target) throws IOException {
+    private static void writeJpeg(BufferedImage image, Path target, float quality) throws IOException {
         Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
         if (!writers.hasNext()) {
             throw new IOException("No JPEG writer available");
@@ -185,7 +270,7 @@ public class ProductImageStorage {
         ImageWriteParam param = writer.getDefaultWriteParam();
         if (param.canWriteCompressed()) {
             param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            param.setCompressionQuality(JPEG_QUALITY);
+            param.setCompressionQuality(quality);
         }
         try (OutputStream out = Files.newOutputStream(target);
              ImageOutputStream ios = ImageIO.createImageOutputStream(out)) {

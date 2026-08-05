@@ -11,14 +11,17 @@ export function ShopProductImage({
   cacheKey,
   className,
   imgClassName,
+  size = 'thumb',
 }: {
   path: string | null | undefined;
   alt: string;
   cacheKey?: string;
   className?: string;
   imgClassName?: string;
+  /** Grid cards default to thumb; product detail can pass full. */
+  size?: 'thumb' | 'full';
 }) {
-  const src = shopImageUrl(path, cacheKey);
+  const src = shopImageUrl(path, cacheKey, size);
   const [failed, setFailed] = useState(false);
 
   return (
