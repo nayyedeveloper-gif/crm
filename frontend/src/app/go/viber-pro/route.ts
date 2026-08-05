@@ -1,30 +1,75 @@
 import { NextResponse } from 'next/server';
 
-/** Opens Viber chat with Customer Service Pro Team (09753430161). */
-const VIBER_DEEP_LINK = 'viber://chat?number=%2B959753430161';
+/**
+ * Personal Viber numbers (not Business / Community / PA) often reject
+ * auto-redirects. Telegram's in-app browser also blocks silent viber://
+ * redirects — require a real user tap on a viber:// link.
+ *
+ * Number formats Viber accepts (intl, no + / leading 0): 959753430161
+ */
+const LOCAL = '09753430161';
+const INTL = '959753430161';
+const CHAT = `viber://chat?number=${INTL}`;
+const ADD = `viber://add?number=${INTL}`;
 
 export function GET() {
-  return new NextResponse(
-    `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="my">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="refresh" content="0;url=${VIBER_DEEP_LINK}" />
-  <title>Pro Team Viber</title>
-  <script>location.replace(${JSON.stringify(VIBER_DEEP_LINK)});</script>
-</head>
-<body style="font-family:system-ui,sans-serif;padding:2rem;text-align:center">
-  <p>Viber သို့ ဖွင့်နေပါသည်…</p>
-  <p><a href="${VIBER_DEEP_LINK}">Pro Team (Viber) 09753430161</a></p>
-</body>
-</html>`,
-    {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=300',
-      },
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Pro Team · Viber</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh; display: grid; place-items: center;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: linear-gradient(165deg, #f3f7ff 0%, #eef8f3 50%, #f7f7f7 100%);
+      color: #1a1a1a; padding: 24px;
     }
-  );
+    .card {
+      width: min(100%, 380px); background: #fff; border-radius: 20px;
+      padding: 28px 22px; box-shadow: 0 12px 40px rgba(15, 40, 80, 0.08);
+      text-align: center;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 6px; }
+    p { margin: 0 0 16px; color: #555; font-size: 0.95rem; line-height: 1.45; }
+    .num {
+      font-size: 1.35rem; font-weight: 700; letter-spacing: 0.02em;
+      margin: 8px 0 20px; font-variant-numeric: tabular-nums;
+    }
+    a.btn {
+      display: block; width: 100%; text-decoration: none; border-radius: 14px;
+      padding: 14px 16px; font-weight: 650; font-size: 1rem; margin: 0 0 10px;
+    }
+    a.primary { background: #7360f2; color: #fff; }
+    a.secondary { background: #f0eefc; color: #4b3cc4; }
+    a.dial { background: #ecfdf3; color: #166534; }
+    .hint { font-size: 0.8rem; color: #888; margin-top: 14px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Customer Service Pro Team</h1>
+    <p>အောက်က ခလုတ်ကို <b>နှိပ်</b>ပြီး Viber chat ဖွင့်ပါ</p>
+    <div class="num">${LOCAL}</div>
+    <a class="btn primary" href="${CHAT}">💬 Viber မှာ စကားပြောမယ်</a>
+    <a class="btn secondary" href="${ADD}">＋ Viber contact ထည့်မယ်</a>
+    <a class="btn dial" href="tel:+${INTL}">📞 ဖုန်းခေါ်မယ်</a>
+    <p class="hint">
+      Viber မပွင့်ရင် Viber app ဖွင့်ပြီး <b>${LOCAL}</b> ကို ရှာပါ။
+      Personal နံပါတ်ဖြစ်လို့ အလိုအလျောက် chat မဖွင့်ရင် contact ထည့်ပြီးမှ စာပို့နိုင်ပါတယ်။
+    </p>
+  </div>
+</body>
+</html>`;
+
+  return new NextResponse(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
 }
