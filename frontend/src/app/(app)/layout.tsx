@@ -49,6 +49,8 @@ import api from '@/lib/api';
 import type { ApiResponse, AppSettingsResponse, BranchResponse } from '@/types';
 import { cn } from '@/lib/utils';
 import { SHOP_PERMISSION_KEYS, CRM_PERMISSION_KEYS, usePermissionStore, resolveHomePath, isPathAllowed } from '@/lib/permission-store';
+import { CrmNavLink } from '@/components/crm-nav-link';
+import Link from 'next/link';
 
 function AlertDot({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -95,6 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
+  // Sync hydrate on first paint — avoid flashing the full-screen Loading gate
   useEffect(() => {
     hydrate();
     hydrateUi();
@@ -148,23 +151,62 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, router]);
 
   useEffect(() => {
-    if (isAuthenticated && canPerm(SHOP_PERMISSION_KEYS.inquiries)) {
-      api
-        .get<ApiResponse<number>>('/inquiries/count?status=NEW')
-        .then(({ data }) => setNewInquiryCount(Number(data.data) || 0))
-        .catch(() => setNewInquiryCount(0));
-    } else {
-      setNewInquiryCount(0);
+    if (!isAuthenticated) return;
+    const loadBadges = () => {
+      if (canPerm(SHOP_PERMISSION_KEYS.inquiries)) {
+        api
+          .get<ApiResponse<number>>('/inquiries/count?status=NEW')
+          .then(({ data }) => setNewInquiryCount(Number(data.data) || 0))
+          .catch(() => setNewInquiryCount(0));
+      } else {
+        setNewInquiryCount(0);
+      }
+      if (canPerm(SHOP_PERMISSION_KEYS.orders)) {
+        api
+          .get<ApiResponse<number>>('/orders/count?status=AWAITING_CONFIRMATION')
+          .then(({ data }) => setPendingOrderCount(Number(data.data) || 0))
+          .catch(() => setPendingOrderCount(0));
+      } else {
+        setPendingOrderCount(0);
+      }
+    };
+    loadBadges();
+    const onFocus = () => loadBadges();
+    window.addEventListener('focus', onFocus);
+    const timer = window.setInterval(loadBadges, 60_000);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(timer);
+    };
+  }, [isAuthenticated, canPerm, permissionsLoaded]);
+
+  useEffect(() => {
+    if (!permissionsLoaded || !isAuthenticated) return;
+    const routes = [
+      canPerm(CRM_PERMISSION_KEYS.showcase) && '/showcase',
+      canPerm(CRM_PERMISSION_KEYS.crmView) && '/crm-history',
+      canPerm(CRM_PERMISSION_KEYS.dashboard) && '/dashboard',
+      canPerm(CRM_PERMISSION_KEYS.sales) && '/sales/overview',
+      canPerm(SHOP_PERMISSION_KEYS.products) && '/products',
+      canPerm(SHOP_PERMISSION_KEYS.dashboard) && '/shop-dashboard',
+      '/settings/profile',
+    ].filter(Boolean) as string[];
+    for (const href of routes) {
+      try {
+        router.prefetch(href);
+      } catch {
+        // ignore
+      }
     }
-    if (isAuthenticated && canPerm(SHOP_PERMISSION_KEYS.orders)) {
-      api
-        .get<ApiResponse<number>>('/orders/count?status=AWAITING_CONFIRMATION')
-        .then(({ data }) => setPendingOrderCount(Number(data.data) || 0))
-        .catch(() => setPendingOrderCount(0));
-    } else {
-      setPendingOrderCount(0);
+    // Warm Sales SPA shell so first Sales click is faster
+    if (canPerm(CRM_PERMISSION_KEYS.sales)) {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = '/sales-app/index.html';
+      link.as = 'document';
+      document.head.appendChild(link);
     }
-  }, [isAuthenticated, user, pathname, canPerm, permissionsLoaded]);
+  }, [permissionsLoaded, isAuthenticated, canPerm, router]);
 
   useEffect(() => {
     if (!permissionsLoaded || !isAuthenticated) return;
@@ -477,43 +519,47 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.push(href);
   };
 
+  // Prefetch on hover for mobile tabs that still use buttons in "More" sheet
+  const prefetch = (href: string) => {
+    try {
+      router.prefetch(href);
+    } catch {
+      // ignore
+    }
+  };
+
   const navButtons = (side = false) => (
     <>
       {showCrmDashboard && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname.startsWith('/dashboard') && !pathname.startsWith('/shop-dashboard'), side)}
-          onClick={() => router.push('/dashboard')}
+        <CrmNavLink
+          href="/dashboard"
+          side={side}
+          active={pathname.startsWith('/dashboard') && !pathname.startsWith('/shop-dashboard')}
         >
           <LayoutDashboard className="h-3.5 w-3.5" />
           Dashboard
-        </Button>
+        </CrmNavLink>
       )}
       {showCrmHistory && (
-        <Button
-          variant="ghost"
-          className={navItem(
+        <CrmNavLink
+          href="/crm-history"
+          side={side}
+          active={
             pathname === '/crm-history' ||
-              (pathname.startsWith('/crm-history/') &&
-                !pathname.endsWith('/new') &&
-                !pathname.includes('/edit')),
-            side
-          )}
-          onClick={() => router.push('/crm-history')}
+            (pathname.startsWith('/crm-history/') &&
+              !pathname.endsWith('/new') &&
+              !pathname.includes('/edit'))
+          }
         >
           <History className="h-3.5 w-3.5" />
           CRM History
-        </Button>
+        </CrmNavLink>
       )}
       {showShowcase && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname.startsWith('/showcase'), side)}
-          onClick={() => router.push('/showcase')}
-        >
+        <CrmNavLink href="/showcase" side={side} active={pathname.startsWith('/showcase')}>
           <LayoutGrid className="h-3.5 w-3.5" />
           Show Case
-        </Button>
+        </CrmNavLink>
       )}
       {showSales &&
         (side ? (
@@ -521,7 +567,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setSalesMenuOpen((o) => !o)}
-              className={cn(navItem(salesActive, true), 'flex w-full items-center gap-2')}
+              className={cn(
+                'inline-flex h-9 w-full items-center gap-2 justify-start rounded px-3 text-sm font-normal',
+                salesActive
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+              )}
             >
               <LineChart className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 text-left">Sales</span>
@@ -535,14 +586,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {salesMenuOpen && (
               <div className="ml-3 space-y-0.5 border-l border-white/10 pl-2">
                 {salesSubLinks.map((link) => (
-                  <Button
+                  <CrmNavLink
                     key={link.href}
-                    variant="ghost"
-                    className={cn(navItem(link.match(pathname), true), 'h-8 pl-2')}
-                    onClick={() => router.push(link.href)}
+                    href={link.href}
+                    side
+                    active={link.match(pathname)}
+                    className="h-8 pl-2"
                   >
                     <span className="flex-1 text-left">{link.label}</span>
-                  </Button>
+                  </CrmNavLink>
                 ))}
               </div>
             )}
@@ -560,56 +612,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <DropdownMenuLabel>Sales</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {salesSubLinks.map((link) => (
-                <DropdownMenuItem
-                  key={link.href}
-                  className={cn(link.match(pathname) && 'bg-accent text-accent-foreground')}
-                  onSelect={() => router.push(link.href)}
-                >
-                  <span className="flex-1">{link.label}</span>
+                <DropdownMenuItem key={link.href} asChild>
+                  <Link
+                    href={link.href}
+                    prefetch
+                    className={cn(
+                      'flex w-full cursor-default items-center',
+                      link.match(pathname) && 'bg-accent text-accent-foreground'
+                    )}
+                  >
+                    <span className="flex-1">{link.label}</span>
+                  </Link>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
         ))}
       {showPerformance && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname.startsWith('/performance'), side)}
-          onClick={() => router.push('/performance')}
-        >
+        <CrmNavLink href="/performance" side={side} active={pathname.startsWith('/performance')}>
           <BarChart3 className="h-3.5 w-3.5" />
           Performance
-        </Button>
+        </CrmNavLink>
       )}
       {showReport && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname.startsWith('/report'), side)}
-          onClick={() => router.push('/report')}
-        >
+        <CrmNavLink href="/report" side={side} active={pathname.startsWith('/report')}>
           <FileBarChart className="h-3.5 w-3.5" />
           Report
-        </Button>
+        </CrmNavLink>
       )}
       {showHelp && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname.startsWith('/help'), side)}
-          onClick={() => router.push('/help')}
-        >
+        <CrmNavLink href="/help" side={side} active={pathname.startsWith('/help')}>
           <BookOpen className="h-3.5 w-3.5" />
           How to use
-        </Button>
+        </CrmNavLink>
       )}
       {showApiDocs && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname.startsWith('/api-docs'), side)}
-          onClick={() => router.push('/api-docs')}
-        >
+        <CrmNavLink href="/api-docs" side={side} active={pathname.startsWith('/api-docs')}>
           <Code2 className="h-3.5 w-3.5" />
           API Docs
-        </Button>
+        </CrmNavLink>
       )}
 
       {showShopMenu &&
@@ -618,7 +659,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setShopMenuOpen((o) => !o)}
-              className={cn(navItem(shopActive, true), 'flex w-full items-center gap-2')}
+              className={cn(
+                'inline-flex h-9 w-full items-center gap-2 justify-start rounded px-3 text-sm font-normal',
+                shopActive
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+              )}
             >
               <Store className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 text-left">Shop</span>
@@ -637,16 +683,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   const active = link.match(pathname);
                   const badge = 'badge' in link ? (link.badge ?? 0) : 0;
                   return (
-                    <Button
+                    <CrmNavLink
                       key={link.href}
-                      variant="ghost"
-                      className={cn(navItem(active, true), 'h-8 pl-2')}
-                      onClick={() => router.push(link.href)}
+                      href={link.href}
+                      side
+                      active={active}
+                      className="h-8 pl-2"
                     >
                       <Icon className="h-3.5 w-3.5" />
                       <span className="flex-1 text-left">{link.label}</span>
                       <AlertDot count={badge} />
-                    </Button>
+                    </CrmNavLink>
                   );
                 })}
               </div>
@@ -670,14 +717,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 const active = link.match(pathname);
                 const badge = 'badge' in link ? (link.badge ?? 0) : 0;
                 return (
-                  <DropdownMenuItem
-                    key={link.href}
-                    className={cn(active && 'bg-accent text-accent-foreground')}
-                    onSelect={() => router.push(link.href)}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span className="flex-1">{link.label}</span>
-                    <AlertDot count={badge} />
+                  <DropdownMenuItem key={link.href} asChild>
+                    <Link
+                      href={link.href}
+                      prefetch
+                      className={cn(
+                        'flex w-full cursor-default items-center gap-2',
+                        active && 'bg-accent text-accent-foreground'
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span className="flex-1">{link.label}</span>
+                      <AlertDot count={badge} />
+                    </Link>
                   </DropdownMenuItem>
                 );
               })}
@@ -686,14 +738,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         ))}
 
       {showNewRecord && (
-        <Button
-          variant="ghost"
-          className={navItem(pathname === '/crm-history/new', side)}
-          onClick={() => router.push('/crm-history/new')}
-        >
+        <CrmNavLink href="/crm-history/new" side={side} active={pathname === '/crm-history/new'}>
           <Plus className="h-3.5 w-3.5" />
           New Record
-        </Button>
+        </CrmNavLink>
       )}
     </>
   );
@@ -892,12 +940,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const Icon = tab.icon;
               const active = tab.match(pathname);
               return (
-                <button
+                <Link
                   key={tab.id}
-                  type="button"
+                  href={tab.href}
+                  prefetch
                   className="crm-bottom-nav-item"
                   data-active={active ? 'true' : 'false'}
-                  onClick={() => goMobile(tab.href)}
+                  onMouseEnter={() => prefetch(tab.href)}
+                  onTouchStart={() => prefetch(tab.href)}
                 >
                   <span className="relative">
                     <Icon className="h-5 w-5" />
@@ -906,7 +956,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     </span>
                   </span>
                   <span>{tab.label}</span>
-                </button>
+                </Link>
               );
             })}
             <button

@@ -2,6 +2,9 @@
 const nextConfig = {
   // Enables smaller production deploys (node server.js)
   output: 'standalone',
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
   async redirects() {
     return [
       // Prefer config redirects over redirect() in pages — avoids App Router React #310

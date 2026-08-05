@@ -878,8 +878,21 @@ export default function ShowcasePage() {
       {error && !open && <p className="text-sm text-red-600">{error}</p>}
 
       {loading && items.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center text-[#8c8c8c]">
-          <Loader2 className="h-5 w-5 animate-spin" />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="overflow-hidden rounded-xl border border-[#e8e8e8] bg-white dark:border-neutral-800 dark:bg-neutral-900"
+              >
+                <div className="aspect-square animate-pulse bg-[#ebebeb] dark:bg-neutral-800" />
+                <div className="space-y-2 p-3">
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-[#ebebeb] dark:bg-neutral-800" />
+                  <div className="h-3 w-1/3 animate-pulse rounded bg-[#ebebeb] dark:bg-neutral-800" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#e8e8e8] bg-white p-8 text-center dark:border-neutral-800 dark:bg-neutral-900">

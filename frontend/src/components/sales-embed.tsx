@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type SalesView =
   | 'overview'
@@ -17,6 +17,7 @@ export type SalesView =
 export function SalesEmbed({ view }: { view: SalesView }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
+  const [frameReady, setFrameReady] = useState(false);
   // Use index.html explicitly — Next.js 308-strips /sales-app/ → /sales-app (404)
   const srcRef = useRef(`/sales-app/index.html?embed=1&tab=${encodeURIComponent(view)}`);
 
@@ -30,7 +31,13 @@ export function SalesEmbed({ view }: { view: SalesView }) {
   }, [view]);
 
   return (
-    <div className="-m-4 flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:-m-5">
+    <div className="relative -m-4 flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col md:-m-5">
+      {!frameReady && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#f5f5f5]">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#e8e8e8] border-t-primary" />
+          <p className="text-sm text-[#8c8c8c]">Opening Sales…</p>
+        </div>
+      )}
       <iframe
         ref={iframeRef}
         title="Sales Dashboard"
@@ -39,6 +46,7 @@ export function SalesEmbed({ view }: { view: SalesView }) {
         allow="clipboard-write"
         onLoad={() => {
           readyRef.current = true;
+          setFrameReady(true);
           iframeRef.current?.contentWindow?.postMessage(
             { type: 'sales-set-tab', tab: view },
             window.location.origin
