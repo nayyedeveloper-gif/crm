@@ -139,6 +139,7 @@ public class ShopOrderService {
                 "Order " + saved.getOrderCode() + " cancelled (customer/bot)",
                 "phone=" + saved.getPhone());
         ShopOrderResponse response = toResponse(saved);
+        // Customer notify listens to order.status (status=CANCELLED); order.cancelled for admin/analytics.
         n8nWebhookService.dispatch("order.status", response);
         n8nWebhookService.dispatch("order.cancelled", response);
         return response;
@@ -165,24 +166,34 @@ public class ShopOrderService {
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ShopOrder", id));
 
+        String previousStatus = order.getStatus() != null
+                ? order.getStatus().toUpperCase(Locale.ROOT)
+                : "";
         String previousPayment = order.getPaymentStatus() != null
                 ? order.getPaymentStatus().toUpperCase(Locale.ROOT)
                 : "UNPAID";
+        String previousTracking = order.getTrackingNumber();
 
         order.setStatus(normalized);
         if (trackingNumber != null) {
             order.setTrackingNumber(trimOrNull(trackingNumber));
         }
 
+        boolean paymentChanged = false;
         boolean paymentBecamePaid = false;
         if (StringUtils.hasText(paymentStatus)) {
             String pay = paymentStatus.trim().toUpperCase(Locale.ROOT);
             if (!PAYMENT_STATUSES.contains(pay)) {
                 throw new BusinessException("Invalid payment status");
             }
-            paymentBecamePaid = !"PAID".equals(previousPayment) && "PAID".equals(pay);
+            paymentChanged = !pay.equals(previousPayment);
+            paymentBecamePaid = paymentChanged && "PAID".equals(pay);
             order.setPaymentStatus(pay);
         }
+
+        boolean statusChanged = !normalized.equals(previousStatus);
+        boolean trackingChanged = trackingNumber != null
+                && !java.util.Objects.equals(trimOrNull(trackingNumber), previousTracking);
 
         ShopOrder saved = orderRepository.save(order);
         auditLogService.change("SHOP_ORDERS", "STATUS",
@@ -190,7 +201,10 @@ public class ShopOrderService {
                         + " payment=" + saved.getPaymentStatus(),
                 saved.getTrackingNumber());
         ShopOrderResponse response = toResponse(saved);
-        n8nWebhookService.dispatch("order.status", response);
+
+        if (statusChanged || paymentChanged || trackingChanged) {
+            n8nWebhookService.dispatch("order.status", response);
+        }
         if (paymentBecamePaid) {
             n8nWebhookService.dispatch("order.payment_paid", response);
         }
