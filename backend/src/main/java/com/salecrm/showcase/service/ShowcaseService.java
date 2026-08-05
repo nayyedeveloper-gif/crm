@@ -17,6 +17,7 @@ import com.salecrm.showcase.dto.ShowcaseSummaryResponse;
 import com.salecrm.showcase.entity.ShowcaseImage;
 import com.salecrm.showcase.entity.ShowcaseItem;
 import com.salecrm.showcase.entity.ShowcaseSubcategory;
+import com.salecrm.showcase.repository.ShowcaseImageRepository;
 import com.salecrm.showcase.repository.ShowcaseItemRepository;
 import com.salecrm.showcase.util.JewelleryCategories;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class ShowcaseService {
     public static final int MAX_IMAGES = 12;
 
     private final ShowcaseItemRepository itemRepository;
+    private final ShowcaseImageRepository imageRepository;
     private final BranchRepository branchRepository;
     private final ProductCategoryRepository categoryRepository;
     private final ShowcaseImageStorage imageStorage;
@@ -230,12 +232,9 @@ public class ShowcaseService {
 
     @Transactional(readOnly = true)
     public Resource loadImage(Long itemId, Long imageId) {
-        ShowcaseItem item = require(itemId);
-        ensureBranchAccess(item.getBranch().getId());
-        ShowcaseImage image = item.getImages().stream()
-                .filter(i -> i.getId().equals(imageId))
-                .findFirst()
+        ShowcaseImage image = imageRepository.findForItem(itemId, imageId)
                 .orElseThrow(() -> new ResourceNotFoundException("ShowcaseImage", imageId));
+        ensureBranchAccess(image.getItem().getBranch().getId());
         Path path = imageStorage.resolve(image.getFilePath());
         return new FileSystemResource(path);
     }
