@@ -14,6 +14,8 @@ public record ShopOrderCreateRequest(
         @Size(max = 1000) String address,
         @Size(max = 1000) String note,
         @Size(max = 160) String paymentRef,
+        /** Optional Telegram chat id when the order is placed via the bot. */
+        @Size(max = 64) String telegramChatId,
         @NotEmpty @Valid List<ShopOrderItemRequest> items
 ) {
     public record ShopOrderItemRequest(

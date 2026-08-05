@@ -54,4 +54,13 @@ public class ShopOrder extends BaseEntity {
 
     @Column(name = "payment_ref", length = 160)
     private String paymentRef;
+
+    /** UNPAID | PAID | REFUNDED — admin-managed until MMQR is enabled. */
+    @Column(name = "payment_status", nullable = false, length = 20)
+    @Builder.Default
+    private String paymentStatus = "UNPAID";
+
+    /** Set when the order is created from Telegram so payment/cancel notifies can reply. */
+    @Column(name = "telegram_chat_id", length = 64)
+    private String telegramChatId;
 }

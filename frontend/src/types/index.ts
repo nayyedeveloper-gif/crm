@@ -389,6 +389,8 @@ export interface ShopOrderResponse {
   trackingNumber: string | null;
   paymentMethod: string | null;
   paymentRef: string | null;
+  paymentStatus?: string;
+  telegramChatId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

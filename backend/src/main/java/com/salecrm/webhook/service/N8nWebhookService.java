@@ -51,6 +51,8 @@ public class N8nWebhookService {
             "inquiry.status",
             "order.created",
             "order.status",
+            "order.cancelled",
+            "order.payment_paid",
             "webhook.test"
     );
 

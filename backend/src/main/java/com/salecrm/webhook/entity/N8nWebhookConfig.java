@@ -31,7 +31,7 @@ public class N8nWebhookConfig extends BaseEntity {
     @Column(name = "events", nullable = false, length = 500)
     @Builder.Default
     private String events =
-            "showcase.created,showcase.updated,sales.created,inquiry.created,order.created,order.status";
+            "showcase.created,showcase.updated,sales.created,inquiry.created,order.created,order.status,order.cancelled,order.payment_paid";
 
     @Column(name = "inbound_enabled", nullable = false)
     @Builder.Default

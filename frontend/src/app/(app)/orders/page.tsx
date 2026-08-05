@@ -18,6 +18,8 @@ const STATUSES = [
   'CANCELLED',
 ];
 
+const PAYMENT_STATUSES = ['UNPAID', 'PAID', 'REFUNDED'];
+
 function statusBadge(status: string) {
   if (status === 'PENDING_PAYMENT') return 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300';
   if (status === 'AWAITING_CONFIRMATION') return 'bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300';
@@ -26,6 +28,12 @@ function statusBadge(status: string) {
   if (status === 'DELIVERED') return 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300';
   if (status === 'CANCELLED') return 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300';
   return 'bg-[#f5f5f5] text-[#595959] dark:bg-neutral-800 dark:text-neutral-300';
+}
+
+function paymentBadge(status: string | undefined) {
+  if (status === 'PAID') return 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300';
+  if (status === 'REFUNDED') return 'bg-orange-50 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300';
+  return 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300';
 }
 
 type OrderItem = {
@@ -89,12 +97,18 @@ export default function OrdersPage() {
     load();
   }, [load]);
 
-  async function update(id: number, status: string, trackingNumber?: string) {
+  async function update(
+    id: number,
+    status: string,
+    trackingNumber?: string,
+    paymentStatus?: string
+  ) {
     setUpdatingId(id);
     try {
       await api.put(`/orders/${id}/status`, {
         status,
         trackingNumber: trackingNumber ?? trackingDraft[id] ?? null,
+        paymentStatus: paymentStatus ?? undefined,
       });
       await load();
     } catch {
@@ -186,6 +200,14 @@ export default function OrdersPage() {
                         >
                           {row.status.replace(/_/g, ' ')}
                         </span>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide',
+                            paymentBadge(row.paymentStatus)
+                          )}
+                        >
+                          {(row.paymentStatus || 'UNPAID').replace(/_/g, ' ')}
+                        </span>
                       </div>
                       <p className="mt-1 truncate text-sm text-[#262626] dark:text-neutral-200">
                         {row.customerName}
@@ -217,7 +239,8 @@ export default function OrdersPage() {
                           <div>
                             <dt className="text-[#8c8c8c]">Payment</dt>
                             <dd className="text-[#262626] dark:text-neutral-200">
-                              {row.paymentMethod || '—'}
+                              {(row.paymentStatus || 'UNPAID').replace(/_/g, ' ')}
+                              {row.paymentMethod ? ` · ${row.paymentMethod}` : ''}
                               {row.paymentRef ? ` · ${row.paymentRef}` : ''}
                             </dd>
                           </div>
@@ -227,6 +250,14 @@ export default function OrdersPage() {
                               {row.trackingNumber || '—'}
                             </dd>
                           </div>
+                          {row.telegramChatId && (
+                            <div>
+                              <dt className="text-[#8c8c8c]">Telegram</dt>
+                              <dd className="font-mono text-[#262626] dark:text-neutral-200">
+                                {row.telegramChatId}
+                              </dd>
+                            </div>
+                          )}
                           <div className="sm:col-span-2">
                             <dt className="text-[#8c8c8c]">Address</dt>
                             <dd className="text-[#262626] dark:text-neutral-200">
@@ -289,12 +320,14 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-[11px] font-medium text-[#8c8c8c]">Status</label>
+                        <label className="text-[11px] font-medium text-[#8c8c8c]">Order status</label>
                         <select
                           className="h-10 w-full rounded-lg border border-[#d9d9d9] bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-950"
                           value={row.status}
                           disabled={updatingId === row.id}
-                          onChange={(e) => update(row.id, e.target.value)}
+                          onChange={(e) =>
+                            update(row.id, e.target.value, undefined, row.paymentStatus)
+                          }
                         >
                           {STATUSES.map((s) => (
                             <option key={s} value={s}>
@@ -302,6 +335,24 @@ export default function OrdersPage() {
                             </option>
                           ))}
                         </select>
+                        <label className="text-[11px] font-medium text-[#8c8c8c]">
+                          Payment status (manual)
+                        </label>
+                        <select
+                          className="h-10 w-full rounded-lg border border-[#d9d9d9] bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-950"
+                          value={row.paymentStatus || 'UNPAID'}
+                          disabled={updatingId === row.id}
+                          onChange={(e) => update(row.id, row.status, undefined, e.target.value)}
+                        >
+                          {PAYMENT_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-[#8c8c8c]">
+                          PAID သို့ပြောင်းရင် Telegram order ဆိုရင် customer ဆီ payment အောင်မြင်စာ ပို့ပါမယ်။
+                        </p>
                         <label className="text-[11px] font-medium text-[#8c8c8c]">Tracking</label>
                         <div className="flex gap-2">
                           <Input
@@ -316,7 +367,14 @@ export default function OrdersPage() {
                             type="button"
                             className="h-10 shrink-0"
                             disabled={updatingId === row.id}
-                            onClick={() => update(row.id, row.status, trackingDraft[row.id])}
+                            onClick={() =>
+                              update(
+                                row.id,
+                                row.status,
+                                trackingDraft[row.id],
+                                row.paymentStatus
+                              )
+                            }
                           >
                             Save
                           </Button>

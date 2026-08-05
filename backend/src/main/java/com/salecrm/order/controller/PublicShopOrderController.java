@@ -1,6 +1,7 @@
 package com.salecrm.order.controller;
 
 import com.salecrm.common.web.ApiResponse;
+import com.salecrm.order.dto.ShopOrderCancelRequest;
 import com.salecrm.order.dto.ShopOrderCreateRequest;
 import com.salecrm.order.dto.ShopOrderResponse;
 import com.salecrm.order.service.ShopOrderService;
@@ -25,5 +26,15 @@ public class PublicShopOrderController {
             @RequestParam String code,
             @RequestParam String phone) {
         return ApiResponse.ok(shopOrderService.track(code, phone));
+    }
+
+    /**
+     * Customer/bot cancel. Requires {@code confirm=true} after an explicit yes from the customer.
+     */
+    @PostMapping("/cancel")
+    public ApiResponse<ShopOrderResponse> cancel(@Valid @RequestBody ShopOrderCancelRequest request) {
+        return ApiResponse.ok(
+                shopOrderService.cancelByCodeAndPhone(request.code(), request.phone(), request.confirm()),
+                "Order cancelled");
     }
 }

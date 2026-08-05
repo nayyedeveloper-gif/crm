@@ -38,6 +38,19 @@ public class ShopOrderService {
             "CANCELLED"
     );
 
+    public static final Set<String> PAYMENT_STATUSES = Set.of(
+            "UNPAID",
+            "PAID",
+            "REFUNDED"
+    );
+
+    private static final Set<String> CANCELABLE = Set.of(
+            "PENDING_PAYMENT",
+            "AWAITING_CONFIRMATION",
+            "CONFIRMED",
+            "PACKING"
+    );
+
     private final ShopOrderRepository orderRepository;
     private final AppSettingsRepository appSettingsRepository;
     private final ObjectMapper objectMapper;
@@ -75,7 +88,7 @@ public class ShopOrderService {
         ShopOrder order = ShopOrder.builder()
                 .orderCode(generateOrderCode())
                 .customerName(request.customerName().trim())
-                .phone(request.phone().trim())
+                .phone(normalizePhone(request.phone()))
                 .address(trimOrNull(request.address()))
                 .note(trimOrNull(request.note()))
                 .itemsJson(itemsJson)
@@ -83,12 +96,15 @@ public class ShopOrderService {
                 .status(status)
                 .paymentMethod(mmqr ? "MMQR" : "MANUAL")
                 .paymentRef(trimOrNull(request.paymentRef()))
+                .paymentStatus("UNPAID")
+                .telegramChatId(trimOrNull(request.telegramChatId()))
                 .build();
 
         ShopOrder saved = orderRepository.save(order);
         auditLogService.change("SHOP_ORDERS", "CREATE",
                 "Order " + saved.getOrderCode() + " from " + saved.getCustomerName(),
-                "status=" + saved.getStatus());
+                "status=" + saved.getStatus()
+                        + (saved.getTelegramChatId() != null ? " telegram=yes" : ""));
         ShopOrderResponse response = toResponse(saved);
         n8nWebhookService.dispatch("order.created", response);
         return response;
@@ -100,13 +116,32 @@ public class ShopOrderService {
         if (!settings.isShopOrdersEnabled()) {
             throw new BusinessException("Order tracking is disabled");
         }
-        if (!StringUtils.hasText(orderCode) || !StringUtils.hasText(phone)) {
-            throw new BusinessException("Order code and phone are required");
+        return toResponse(requireByCodeAndPhone(orderCode, phone));
+    }
+
+    @Transactional
+    public ShopOrderResponse cancelByCodeAndPhone(String orderCode, String phone, boolean confirm) {
+        if (!confirm) {
+            throw new BusinessException(
+                    "Confirm cancel first. Ask the customer, then call again with confirm=true.");
         }
-        ShopOrder order = orderRepository
-                .findByOrderCodeIgnoreCaseAndPhone(orderCode.trim(), phone.trim())
-                .orElseThrow(() -> new BusinessException("Order not found"));
-        return toResponse(order);
+        ShopOrder order = requireByCodeAndPhone(orderCode, phone);
+        if ("CANCELLED".equals(order.getStatus())) {
+            return toResponse(order);
+        }
+        if (!CANCELABLE.contains(order.getStatus())) {
+            throw new BusinessException(
+                    "Order cannot be cancelled in status " + order.getStatus());
+        }
+        order.setStatus("CANCELLED");
+        ShopOrder saved = orderRepository.save(order);
+        auditLogService.change("SHOP_ORDERS", "CANCEL",
+                "Order " + saved.getOrderCode() + " cancelled (customer/bot)",
+                "phone=" + saved.getPhone());
+        ShopOrderResponse response = toResponse(saved);
+        n8nWebhookService.dispatch("order.status", response);
+        n8nWebhookService.dispatch("order.cancelled", response);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -122,22 +157,43 @@ public class ShopOrderService {
     }
 
     @Transactional
-    public ShopOrderResponse updateStatus(Long id, String status, String trackingNumber) {
+    public ShopOrderResponse updateStatus(Long id, String status, String trackingNumber, String paymentStatus) {
         String normalized = status.trim().toUpperCase(Locale.ROOT);
         if (!STATUSES.contains(normalized)) {
             throw new BusinessException("Invalid order status");
         }
         ShopOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("ShopOrder", id));
+
+        String previousPayment = order.getPaymentStatus() != null
+                ? order.getPaymentStatus().toUpperCase(Locale.ROOT)
+                : "UNPAID";
+
         order.setStatus(normalized);
         if (trackingNumber != null) {
             order.setTrackingNumber(trimOrNull(trackingNumber));
         }
+
+        boolean paymentBecamePaid = false;
+        if (StringUtils.hasText(paymentStatus)) {
+            String pay = paymentStatus.trim().toUpperCase(Locale.ROOT);
+            if (!PAYMENT_STATUSES.contains(pay)) {
+                throw new BusinessException("Invalid payment status");
+            }
+            paymentBecamePaid = !"PAID".equals(previousPayment) && "PAID".equals(pay);
+            order.setPaymentStatus(pay);
+        }
+
         ShopOrder saved = orderRepository.save(order);
         auditLogService.change("SHOP_ORDERS", "STATUS",
-                "Order " + saved.getOrderCode() + " → " + normalized, saved.getTrackingNumber());
+                "Order " + saved.getOrderCode() + " → " + normalized
+                        + " payment=" + saved.getPaymentStatus(),
+                saved.getTrackingNumber());
         ShopOrderResponse response = toResponse(saved);
         n8nWebhookService.dispatch("order.status", response);
+        if (paymentBecamePaid) {
+            n8nWebhookService.dispatch("order.payment_paid", response);
+        }
         return response;
     }
 
@@ -156,6 +212,17 @@ public class ShopOrderService {
         orderRepository.delete(order);
         auditLogService.change("SHOP_ORDERS", "DELETE",
                 "Order " + code + " deleted", null);
+    }
+
+    private ShopOrder requireByCodeAndPhone(String orderCode, String phone) {
+        if (!StringUtils.hasText(orderCode) || !StringUtils.hasText(phone)) {
+            throw new BusinessException("Order code and phone are required");
+        }
+        String code = orderCode.trim();
+        String phoneNorm = normalizePhone(phone);
+        return orderRepository.findByOrderCodeIgnoreCase(code)
+                .filter(o -> normalizePhone(o.getPhone()).equals(phoneNorm))
+                .orElseThrow(() -> new BusinessException("Order not found"));
     }
 
     private String generateOrderCode() {
@@ -188,9 +255,20 @@ public class ShopOrderService {
                 o.getTrackingNumber(),
                 o.getPaymentMethod(),
                 o.getPaymentRef(),
+                o.getPaymentStatus() != null ? o.getPaymentStatus() : "UNPAID",
+                o.getTelegramChatId(),
                 o.getCreatedAt(),
                 o.getUpdatedAt()
         );
+    }
+
+    /** Digits-only compare friendly: keep leading + if present, strip spaces/dashes. */
+    static String normalizePhone(String phone) {
+        String raw = phone.trim().replace(" ", "").replace("-", "");
+        if (raw.startsWith("+")) {
+            return "+" + raw.substring(1).replaceAll("\\D", "");
+        }
+        return raw.replaceAll("\\D", "");
     }
 
     private static String trimOrNull(String value) {

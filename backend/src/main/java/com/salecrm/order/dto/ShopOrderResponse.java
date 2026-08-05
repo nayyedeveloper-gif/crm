@@ -16,6 +16,8 @@ public record ShopOrderResponse(
         String trackingNumber,
         String paymentMethod,
         String paymentRef,
+        String paymentStatus,
+        String telegramChatId,
         Instant createdAt,
         Instant updatedAt
 ) {

@@ -39,7 +39,8 @@ public class ShopOrderAdminController {
             @PathVariable Long id,
             @Valid @RequestBody ShopOrderStatusRequest request) {
         return ApiResponse.ok(
-                shopOrderService.updateStatus(id, request.status(), request.trackingNumber()),
+                shopOrderService.updateStatus(
+                        id, request.status(), request.trackingNumber(), request.paymentStatus()),
                 "Order updated");
     }
 
