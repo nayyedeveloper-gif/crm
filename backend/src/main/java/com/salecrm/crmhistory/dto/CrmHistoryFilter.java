@@ -1,6 +1,7 @@
 package com.salecrm.crmhistory.dto;
 
 import com.salecrm.crmhistory.entity.ActionType;
+import com.salecrm.crmhistory.entity.InviteStatus;
 
 /**
  * Filter parameters for CRM history queries.
@@ -10,6 +11,7 @@ public record CrmHistoryFilter(
         Long branchId,
         String search,
         ActionType actionType,
+        InviteStatus inviteStatus,
         String phone,
         Long regionId,
         Long townshipId

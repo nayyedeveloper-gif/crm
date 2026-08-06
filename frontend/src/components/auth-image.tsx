@@ -286,7 +286,7 @@ export function AuthImage({
   return (
     <span ref={containerRef} className="block h-full w-full bg-[#f0f0f0] dark:bg-neutral-900">
       {resolved ? (
-        // eslint-disable-next-line @next/next/no-img-element
+         
         <img src={resolved} alt={alt} className={className} loading="lazy" decoding="async" />
       ) : null}
     </span>

@@ -18,8 +18,8 @@ export function SalesEmbed({ view }: { view: SalesView }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const readyRef = useRef(false);
   const [frameReady, setFrameReady] = useState(false);
-  // Use index.html explicitly — Next.js 308-strips /sales-app/ → /sales-app (404)
-  const srcRef = useRef(`/sales-app/index.html?embed=1&tab=${encodeURIComponent(view)}`);
+  // Keep iframe source stable; route tab changes through postMessage.
+  const src = '/sales-app/index.html?embed=1';
 
   useEffect(() => {
     const frame = iframeRef.current;
@@ -41,7 +41,7 @@ export function SalesEmbed({ view }: { view: SalesView }) {
       <iframe
         ref={iframeRef}
         title="Sales Dashboard"
-        src={srcRef.current}
+        src={src}
         className="h-full w-full flex-1 border-0 bg-[#f5f5f5]"
         allow="clipboard-write"
         onLoad={() => {

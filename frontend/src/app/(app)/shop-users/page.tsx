@@ -292,7 +292,7 @@ export default function ShopUsersPage() {
                             isSel && 'bg-[#007aff]/06'
                           )}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          { }
                           {user.avatarUrl ? (
                             <img
                               src={user.avatarUrl}
@@ -372,7 +372,7 @@ export default function ShopUsersPage() {
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     {selected.avatarUrl ? (
                       <img
                         src={selected.avatarUrl}

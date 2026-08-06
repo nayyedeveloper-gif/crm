@@ -82,7 +82,7 @@ public class PerformanceService {
         for (Map.Entry<String, Integer> entry : request.targets().entrySet()) {
             AmountBucket bucket;
             try {
-                bucket = AmountBucket.valueOf(entry.getKey());
+                bucket = AmountBucket.fromCode(entry.getKey());
             } catch (IllegalArgumentException ex) {
                 continue;
             }

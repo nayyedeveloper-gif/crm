@@ -3,6 +3,7 @@ package com.salecrm.crmhistory.service;
 import com.salecrm.branch.entity.Branch;
 import com.salecrm.branch.repository.BranchRepository;
 import com.salecrm.config.RedisConfig;
+import com.salecrm.common.exception.BusinessException;
 import com.salecrm.common.exception.ForbiddenBranchAccessException;
 import com.salecrm.common.exception.ResourceNotFoundException;
 import com.salecrm.common.web.PageResponse;
@@ -49,7 +50,7 @@ public class CrmHistoryService {
         Long effectiveBranchId = resolveBranchId(user, filter.branchId());
 
         CrmHistoryFilter scopedFilter = new CrmHistoryFilter(
-                effectiveBranchId, filter.search(), filter.actionType(),
+                effectiveBranchId, filter.search(), filter.actionType(), filter.inviteStatus(),
                 filter.phone(), filter.regionId(), filter.townshipId()
         );
 
@@ -75,6 +76,9 @@ public class CrmHistoryService {
     @CacheEvict(value = RedisConfig.CACHE_CRM_HISTORY, key = "#result.id")
     public CrmHistoryResponse create(CrmHistoryRequest request) {
         UserPrincipal user = SecurityUtils.requireCurrentUser();
+        if (request.inviteStatus() == null) {
+            throw new BusinessException("ပွဲ Status (invite status) is required");
+        }
         Long branchId = user.isCrossBranch() && request.branchId() != null
                 ? request.branchId()
                 : user.getBranchId();
@@ -91,7 +95,9 @@ public class CrmHistoryService {
                 .phone(request.phone())
                 .birthday(request.birthday())
                 .amount(request.amount() != null ? request.amount() : BigDecimal.ZERO)
-                .actionType(request.actionType() != null ? request.actionType() : com.salecrm.crmhistory.entity.ActionType.PURCHASE)
+                .actionType(resolveActionType(request))
+                .inviteStatus(request.inviteStatus())
+                .customerCondition(request.customerCondition())
                 .region(resolveRegion(request.regionId()))
                 .township(resolveTownship(request.townshipId()))
                 .nrc(request.nrc())
@@ -128,7 +134,12 @@ public class CrmHistoryService {
         entity.setPhone(request.phone());
         entity.setBirthday(request.birthday());
         entity.setAmount(request.amount() != null ? request.amount() : BigDecimal.ZERO);
-        entity.setActionType(request.actionType() != null ? request.actionType() : entity.getActionType());
+        if (request.inviteStatus() == null) {
+            throw new BusinessException("ပွဲ Status (invite status) is required");
+        }
+        entity.setInviteStatus(request.inviteStatus());
+        entity.setActionType(resolveActionType(request));
+        entity.setCustomerCondition(request.customerCondition());
         entity.setRegion(resolveRegion(request.regionId()));
         entity.setTownship(resolveTownship(request.townshipId()));
         entity.setNrc(request.nrc());
@@ -192,6 +203,16 @@ public class CrmHistoryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Township", townshipId));
     }
 
+    private static com.salecrm.crmhistory.entity.ActionType resolveActionType(CrmHistoryRequest request) {
+        if (request.actionType() != null) {
+            return request.actionType();
+        }
+        if (request.inviteStatus() != null) {
+            return request.inviteStatus().toActionType();
+        }
+        return com.salecrm.crmhistory.entity.ActionType.PURCHASE;
+    }
+
     public CrmHistoryResponse toResponse(CrmHistory entity) {
         return new CrmHistoryResponse(
                 entity.getId(),
@@ -203,6 +224,8 @@ public class CrmHistoryService {
                 entity.getBirthday(),
                 entity.getAmount(),
                 entity.getActionType(),
+                entity.getInviteStatus(),
+                entity.getCustomerCondition(),
                 entity.getRegion() != null ? entity.getRegion().getId() : null,
                 entity.getRegion() != null ? entity.getRegion().getNameMm() : null,
                 entity.getTownship() != null ? entity.getTownship().getId() : null,
@@ -210,6 +233,8 @@ public class CrmHistoryService {
                 entity.getNrc(),
                 entity.getAddress(),
                 entity.getRemark(),
+                entity.getLegacyId(),
+                entity.getLegacyCreatedByUserId(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getCreatedBy(),

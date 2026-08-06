@@ -86,7 +86,7 @@ export function LimitedOfferSection({
           className="group relative aspect-[4/5] w-full overflow-hidden bg-[#e5e5ea] sm:aspect-[16/11] lg:aspect-auto lg:min-h-[420px]"
         >
           {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={img}
               alt={hero.name}
@@ -180,7 +180,7 @@ export function LimitedOfferSection({
                 >
                   <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-[#e5e5ea]">
                     {thumb ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img
                         src={thumb}
                         alt=""

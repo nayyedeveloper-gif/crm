@@ -6,6 +6,7 @@ import com.salecrm.crmhistory.dto.CrmHistoryFilter;
 import com.salecrm.crmhistory.dto.CrmHistoryRequest;
 import com.salecrm.crmhistory.dto.CrmHistoryResponse;
 import com.salecrm.crmhistory.entity.ActionType;
+import com.salecrm.crmhistory.entity.InviteStatus;
 import com.salecrm.crmhistory.service.CrmHistoryService;
 import com.salecrm.crmhistory.service.CrmHistoryExcelExportService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -33,13 +34,21 @@ public class CrmHistoryController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Long branchId,
+            @RequestParam(name = "branch_id", required = false) Long branchIdLegacy,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) ActionType actionType,
+            @RequestParam(required = false) InviteStatus inviteStatus,
+            @RequestParam(name = "invite_status", required = false) String inviteStatusLegacy,
             @RequestParam(required = false) String phone,
+            @RequestParam(name = "phone_number", required = false) String phoneLegacy,
             @RequestParam(required = false) Long regionId,
-            @RequestParam(required = false) Long townshipId
+            @RequestParam(name = "region_id", required = false) Long regionIdLegacy,
+            @RequestParam(required = false) Long townshipId,
+            @RequestParam(name = "township_id", required = false) Long townshipIdLegacy
     ) {
-        CrmHistoryFilter filter = new CrmHistoryFilter(branchId, search, actionType, phone, regionId, townshipId);
+        CrmHistoryFilter filter = buildFilter(
+                branchId, branchIdLegacy, search, actionType, inviteStatus, inviteStatusLegacy,
+                phone, phoneLegacy, regionId, regionIdLegacy, townshipId, townshipIdLegacy);
         return ApiResponse.ok(crmHistoryService.list(filter, page, size));
     }
 
@@ -74,15 +83,49 @@ public class CrmHistoryController {
     @PreAuthorize("@perm.can('CRM_EXPORT')")
     public void exportExcel(
             @RequestParam(required = false) Long branchId,
+            @RequestParam(name = "branch_id", required = false) Long branchIdLegacy,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) ActionType actionType,
+            @RequestParam(required = false) InviteStatus inviteStatus,
+            @RequestParam(name = "invite_status", required = false) String inviteStatusLegacy,
             @RequestParam(required = false) String phone,
+            @RequestParam(name = "phone_number", required = false) String phoneLegacy,
             @RequestParam(required = false) Long regionId,
+            @RequestParam(name = "region_id", required = false) Long regionIdLegacy,
             @RequestParam(required = false) Long townshipId,
+            @RequestParam(name = "township_id", required = false) Long townshipIdLegacy,
             HttpServletResponse response
     ) throws IOException {
-        CrmHistoryFilter filter = new CrmHistoryFilter(branchId, search, actionType, phone, regionId, townshipId);
+        CrmHistoryFilter filter = buildFilter(
+                branchId, branchIdLegacy, search, actionType, inviteStatus, inviteStatusLegacy,
+                phone, phoneLegacy, regionId, regionIdLegacy, townshipId, townshipIdLegacy);
         List<CrmHistoryResponse> data = excelExportService.listForExport(filter);
         excelExportService.export(data, response);
+    }
+
+    private static CrmHistoryFilter buildFilter(
+            Long branchId,
+            Long branchIdLegacy,
+            String search,
+            ActionType actionType,
+            InviteStatus inviteStatus,
+            String inviteStatusLegacy,
+            String phone,
+            String phoneLegacy,
+            Long regionId,
+            Long regionIdLegacy,
+            Long townshipId,
+            Long townshipIdLegacy
+    ) {
+        Long effectiveBranchId = branchId != null ? branchId : branchIdLegacy;
+        InviteStatus effectiveInvite = inviteStatus != null
+                ? inviteStatus
+                : InviteStatus.parseQueryParam(inviteStatusLegacy);
+        String effectivePhone = phone != null ? phone : phoneLegacy;
+        Long effectiveRegionId = regionId != null ? regionId : regionIdLegacy;
+        Long effectiveTownshipId = townshipId != null ? townshipId : townshipIdLegacy;
+        return new CrmHistoryFilter(
+                effectiveBranchId, search, actionType, effectiveInvite, effectivePhone,
+                effectiveRegionId, effectiveTownshipId);
     }
 }

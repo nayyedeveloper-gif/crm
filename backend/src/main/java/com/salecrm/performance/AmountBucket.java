@@ -10,21 +10,23 @@ import java.util.List;
  * CRM amounts are stored in MMK; buckets are evaluated in သိန်း (100,000 MMK).
  */
 public enum AmountBucket {
-    B_50_100("50 - 100 ကြား", new BigDecimal("50"), new BigDecimal("100")),
-    B_100_300("100 - 300 ကြား", new BigDecimal("100"), new BigDecimal("300")),
-    B_300_500("300 - 500 ကြား", new BigDecimal("300"), new BigDecimal("500")),
-    B_500_1000("500 - 1000 ကြား", new BigDecimal("500"), new BigDecimal("1000")),
-    B_1000_PLUS("1000 ထက်", new BigDecimal("1000"), null),
-    OTHER("OTHER", null, new BigDecimal("50"));
+    B_50_100("50 - 100 ကြား", "amount_50_to_100", new BigDecimal("50"), new BigDecimal("100")),
+    B_100_300("100 - 300 ကြား", "amount_100_to_300", new BigDecimal("100"), new BigDecimal("300")),
+    B_300_500("300 - 500 ကြား", "amount_300_to_500", new BigDecimal("300"), new BigDecimal("500")),
+    B_500_1000("500 - 1000 ကြား", "amount_500_to_1000", new BigDecimal("500"), new BigDecimal("1000")),
+    B_1000_PLUS("1000 ထက်", "amount_above_1000", new BigDecimal("1000"), null),
+    OTHER("OTHER", "amount_other", null, new BigDecimal("50"));
 
     public static final BigDecimal THIEN = new BigDecimal("100000");
 
     private final String labelMm;
+    private final String legacyColumn;
     private final BigDecimal minInclusive; // သိန်း
     private final BigDecimal maxExclusive; // သိန်း
 
-    AmountBucket(String labelMm, BigDecimal minInclusive, BigDecimal maxExclusive) {
+    AmountBucket(String labelMm, String legacyColumn, BigDecimal minInclusive, BigDecimal maxExclusive) {
         this.labelMm = labelMm;
+        this.legacyColumn = legacyColumn;
         this.minInclusive = minInclusive;
         this.maxExclusive = maxExclusive;
     }
@@ -34,7 +36,23 @@ public enum AmountBucket {
     }
 
     public String code() {
-        return name();
+        return legacyColumn;
+    }
+
+    /**
+     * Accepts both enum name (e.g. B_50_100) and legacy CSV column name
+     * (e.g. amount_50_to_100).
+     */
+    public static AmountBucket fromCode(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Bucket code is blank");
+        }
+        for (AmountBucket b : values()) {
+            if (b.name().equalsIgnoreCase(raw) || b.legacyColumn.equalsIgnoreCase(raw)) {
+                return b;
+            }
+        }
+        throw new IllegalArgumentException("Unknown bucket code: " + raw);
     }
 
     public static List<AmountBucket> ordered() {

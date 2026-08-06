@@ -1,5 +1,12 @@
 export type ActionType = 'PURCHASE' | 'INQUIRY' | 'FOLLOW_UP' | 'COMPLAINT' | 'OTHER';
 
+export type InviteStatus =
+  | 'ATTEND'
+  | 'NOT_ATTEND'
+  | 'UNREACHABLE'
+  | 'NOT_ANSWERED'
+  | 'PHONE_OFF';
+
 export type Role = 'ADMIN' | 'MANAGER' | 'STAFF';
 
 export interface AuthResponse {
@@ -47,6 +54,8 @@ export interface CrmHistoryResponse {
   birthday: string | null;
   amount: number;
   actionType: ActionType;
+  inviteStatus: InviteStatus | null;
+  customerCondition: string | null;
   regionId: number | null;
   regionName: string | null;
   townshipId: number | null;
@@ -54,6 +63,8 @@ export interface CrmHistoryResponse {
   nrc: string | null;
   address: string | null;
   remark: string | null;
+  legacyId: number | null;
+  legacyCreatedByUserId: number | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -67,6 +78,8 @@ export interface CrmHistoryRequest {
   birthday: string | null;
   amount: number;
   actionType: ActionType;
+  inviteStatus: InviteStatus | null;
+  customerCondition: string | null;
   regionId: number | null;
   townshipId: number | null;
   nrc: string | null;
@@ -230,6 +243,22 @@ export const ACTION_TYPE_COLORS: Record<ActionType, string> = {
   FOLLOW_UP: 'bg-purple-100 text-purple-700 border-purple-200',
   COMPLAINT: 'bg-red-100 text-red-700 border-red-200',
   OTHER: 'bg-gray-100 text-gray-700 border-gray-200',
+};
+
+export const INVITE_STATUS_LABELS: Record<InviteStatus, string> = {
+  ATTEND: 'တက်ရောက်',
+  NOT_ATTEND: 'မတက်ရောက်',
+  UNREACHABLE: 'ဆက်သွယ်မရ',
+  NOT_ANSWERED: 'မကိုင်',
+  PHONE_OFF: 'ဖုန်းပိတ်',
+};
+
+export const INVITE_STATUS_COLORS: Record<InviteStatus, string> = {
+  ATTEND: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  NOT_ATTEND: 'bg-orange-100 text-orange-700 border-orange-200',
+  UNREACHABLE: 'bg-slate-100 text-slate-700 border-slate-200',
+  NOT_ANSWERED: 'bg-amber-100 text-amber-700 border-amber-200',
+  PHONE_OFF: 'bg-red-100 text-red-700 border-red-200',
 };
 
 export type BucketCode =

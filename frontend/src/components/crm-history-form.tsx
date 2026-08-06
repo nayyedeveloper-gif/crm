@@ -10,9 +10,10 @@ import type {
   RegionResponse,
   TownshipResponse,
   ActionType,
+  InviteStatus,
   BranchResponse,
 } from '@/types';
-import { ACTION_TYPE_LABELS } from '@/types';
+import { ACTION_TYPE_LABELS, INVITE_STATUS_LABELS } from '@/types';
 import { useAuthStore } from '@/lib/auth-store';
 import { CRM_PERMISSION_KEYS, usePermissionStore } from '@/lib/permission-store';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,38 @@ import { ArrowLeft, Loader2, Save } from 'lucide-react';
 import { NrcPicker } from '@/components/nrc-picker';
 
 const ACTION_TYPES: ActionType[] = ['PURCHASE', 'INQUIRY', 'FOLLOW_UP', 'COMPLAINT', 'OTHER'];
+const INVITE_STATUSES: InviteStatus[] = [
+  'ATTEND',
+  'NOT_ATTEND',
+  'UNREACHABLE',
+  'NOT_ANSWERED',
+  'PHONE_OFF',
+];
+
+/** Same presets as Laravel CRM amount_range (သိန်း buckets → MMK seed value). */
+const AMOUNT_RANGES: { value: string; label: string }[] = [
+  { value: '5000000', label: '50 - 100 (5,000,000 ~ 10,000,000 MMK)' },
+  { value: '10000000', label: '100 - 300 (10,000,000 ~ 30,000,000 MMK)' },
+  { value: '30000000', label: '300 - 500 (30,000,000 ~ 50,000,000 MMK)' },
+  { value: '50000000', label: '500 - 1000 (50,000,000 ~ 100,000,000 MMK)' },
+  { value: '100000000', label: '1000 အထက် (100,000,000 MMK ~)' },
+  { value: '100000', label: '50 အောက် (100,000 ~ 5,000,000 MMK)' },
+];
+
+function inviteToAction(invite: InviteStatus | null): ActionType {
+  switch (invite) {
+    case 'ATTEND':
+      return 'PURCHASE';
+    case 'NOT_ATTEND':
+      return 'FOLLOW_UP';
+    case 'UNREACHABLE':
+    case 'NOT_ANSWERED':
+    case 'PHONE_OFF':
+      return 'INQUIRY';
+    default:
+      return 'OTHER';
+  }
+}
 
 interface CrmHistoryFormProps {
   recordId?: string;
@@ -40,6 +73,7 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
   const isEdit = !!recordId;
   const { user } = useAuthStore();
   const canBranchAll = usePermissionStore((s) => s.can(CRM_PERMISSION_KEYS.branchAll));
+  const canCreate = usePermissionStore((s) => s.canEditCrm());
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -48,6 +82,7 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
   const [townships, setTownships] = useState<TownshipResponse[]>([]);
   const [branches, setBranches] = useState<BranchResponse[]>([]);
   const [amountInput, setAmountInput] = useState('');
+  const [amountRange, setAmountRange] = useState('');
 
   const [form, setForm] = useState<Omit<CrmHistoryRequest, 'amount'> & { amount?: number | null }>({
     branchId: null,
@@ -55,6 +90,8 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
     phone: '',
     birthday: null,
     actionType: 'PURCHASE',
+    inviteStatus: null,
+    customerCondition: null,
     regionId: null,
     townshipId: null,
     nrc: null,
@@ -87,6 +124,8 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
         phone: d.phone,
         birthday: d.birthday,
         actionType: d.actionType,
+        inviteStatus: d.inviteStatus,
+        customerCondition: d.customerCondition,
         regionId: d.regionId,
         townshipId: d.townshipId,
         nrc: d.nrc,
@@ -104,6 +143,11 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
   }, [isEdit, recordId]);
 
   const handleRegionChange = (value: string) => {
+    if (value === 'none') {
+      setForm((prev) => ({ ...prev, regionId: null, townshipId: null }));
+      setTownships([]);
+      return;
+    }
     const rid = parseInt(value);
     setForm((prev) => ({ ...prev, regionId: rid, townshipId: null }));
     api
@@ -111,17 +155,49 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
       .then(({ data }) => setTownships(data.data));
   };
 
+  const handleInviteChange = (value: string) => {
+    const invite = value === 'none' ? null : (value as InviteStatus);
+    setForm((prev) => ({
+      ...prev,
+      inviteStatus: invite,
+      actionType: inviteToAction(invite),
+    }));
+  };
+
+  const handleAmountRange = (value: string) => {
+    setAmountRange(value);
+    if (value) {
+      setAmountInput(value);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
-    if (!form.regionId) {
-      setError('တိုင်းဒေသကြီး / ပြည်နယ် ရွေးပေးပါ');
+
+    if (!isEdit && !canCreate) {
+      setError('CRM မှတ်တမ်းအသစ် ထည့်ခွင့် မရှိပါ (CRM_EDIT)');
       setSaving(false);
       return;
     }
     if (canBranchAll && !form.branchId) {
       setError('ဆိုင်ခွဲ ရွေးပေးပါ');
+      setSaving(false);
+      return;
+    }
+    if (!form.customerName.trim()) {
+      setError('ကုန်သည် အမည် ထည့်ပေးပါ');
+      setSaving(false);
+      return;
+    }
+    if (!form.phone.trim()) {
+      setError('ဖုန်းနံပါတ် ထည့်ပေးပါ');
+      setSaving(false);
+      return;
+    }
+    if (!form.inviteStatus) {
+      setError('ပွဲ Status ရွေးပေးပါ');
       setSaving(false);
       return;
     }
@@ -133,15 +209,23 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
       setSaving(false);
       return;
     }
+    // Match Laravel: amount must be at least 6 digits when provided via range
+    if (!isEdit && amountValue > 0 && String(Math.floor(amountValue)).length < 6) {
+      setError('Amount အနည်းဆုံး 6 လုံး ရှိရပါမယ်');
+      setSaving(false);
+      return;
+    }
 
     try {
       const payload: CrmHistoryRequest = {
         branchId: form.branchId || null,
-        customerName: form.customerName,
-        phone: form.phone,
+        customerName: form.customerName.trim(),
+        phone: form.phone.trim(),
         birthday: form.birthday || null,
         amount: amountValue,
-        actionType: form.actionType,
+        actionType: form.actionType || inviteToAction(form.inviteStatus),
+        inviteStatus: form.inviteStatus,
+        customerCondition: form.customerCondition || null,
         regionId: form.regionId,
         townshipId: form.townshipId || null,
         nrc: form.nrc || null,
@@ -173,7 +257,6 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#f5f5f5] dark:bg-neutral-950">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {/* Header bar */}
         <div className="flex shrink-0 items-center gap-2 border-b border-[#f0f0f0] bg-white px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-900 sm:gap-3 sm:px-6 sm:py-3">
           <Button
             type="button"
@@ -186,10 +269,10 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
           </Button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-semibold text-[#262626] dark:text-neutral-100 sm:text-[18px]">
-              {isEdit ? 'Edit Record' : 'New Record'}
+              {isEdit ? 'CRM မှတ်တမ်း ပြင်ဆင်ရန်' : 'CRM မှတ်တမ်းအသစ်'}
             </h1>
             <p className="hidden text-xs text-[#8c8c8c] sm:block">
-              {isEdit ? 'Update customer interaction details' : 'Create customer interaction record'}
+              {isEdit ? 'ဖောက်သည်အချက်အလက် ပြင်ဆင်ပါ' : 'ပွဲ Status ပါသော CRM မှတ်တမ်းအသစ် ထည့်ပါ'}
             </p>
           </div>
           <Button
@@ -204,14 +287,13 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
             type="submit"
             form="crm-history-form"
             className="h-9 min-w-[4.5rem] gap-1.5"
-            disabled={saving}
+            disabled={saving || (!isEdit && !canCreate)}
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            {isEdit ? 'Update' : 'Save'}
+            {isEdit ? 'Update' : 'Create'}
           </Button>
         </div>
 
-        {/* Full-screen form body */}
         <form
           id="crm-history-form"
           onSubmit={handleSubmit}
@@ -222,7 +304,7 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
               <h2 className="mb-1 text-[15px] font-medium text-[#262626] dark:text-neutral-100">
                 Customer Information
               </h2>
-              <p className="mb-6 text-xs text-[#8c8c8c]">ဖောက်သည်အချက်အလက်များ ထည့်ပါ</p>
+              <p className="mb-6 text-xs text-[#8c8c8c]">အဟောင်း CRM create form အတိုင်း ထည့်သွင်းပါ</p>
 
               {error && (
                 <div className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -231,9 +313,9 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
               )}
 
               <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-[#595959]">
-                    ဆိုင် / Branch {canBranchAll ? '*' : ''}
+                    ဆိုင် <span className="text-red-500">*</span>
                   </Label>
                   {canBranchAll ? (
                     <Select
@@ -257,29 +339,33 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[#595959]">Customer Name *</Label>
+                  <Label className="text-[#595959]">
+                    ကုန်သည် အမည် <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     value={form.customerName}
                     onChange={(e) => setForm({ ...form, customerName: e.target.value })}
                     required
                     maxLength={160}
-                    placeholder="ကုန်သည် အမည်"
+                    placeholder="Khi Zaw Taw"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[#595959]">Phone *</Label>
+                  <Label className="text-[#595959]">
+                    ဖုန်းနံပါတ် <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     required
                     maxLength={40}
-                    placeholder="09xxxxxxxxx"
+                    placeholder="09 250544470"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[#595959]">Birthday</Label>
+                  <Label className="text-[#595959]">မွေးနေ့</Label>
                   <Input
                     type="date"
                     value={form.birthday || ''}
@@ -288,14 +374,66 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[#595959]">Amount</Label>
+                  <Label className="text-[#595959]">
+                    ပွဲ Status <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={form.inviteStatus || undefined}
+                    onValueChange={handleInviteChange}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="ရွေးချယ်ပါ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INVITE_STATUSES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {INVITE_STATUS_LABELS[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-[#595959]">ဖောက်သည်အခြေအနေ (customer_condition)</Label>
+                  <Input
+                    value={form.customerCondition || ''}
+                    onChange={(e) =>
+                      setForm({ ...form, customerCondition: e.target.value || null })
+                    }
+                    maxLength={120}
+                    placeholder="Legacy CRM customer_condition"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[#595959]">Amount ကြား</Label>
+                  <Select value={amountRange || undefined} onValueChange={handleAmountRange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="ရွေးချယ်ပါ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AMOUNT_RANGES.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>
+                          {r.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[#595959]">Amount (MMK)</Label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     value={amountInput}
-                    onChange={(e) => setAmountInput(e.target.value)}
-                    placeholder=""
+                    onChange={(e) => {
+                      setAmountInput(e.target.value);
+                      setAmountRange('');
+                    }}
+                    placeholder="Amount ကြား က ရွေးပါ (သို့) ကိုယ်တိုင်ထည့်ပါ"
                   />
                 </div>
 
@@ -316,18 +454,20 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-[11px] text-[#8c8c8c]">ပွဲ Status ရွေးရင် အလိုအလျောက် ပြောင်းပါမယ်</p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[#595959]">Region *</Label>
+                  <Label className="text-[#595959]">ပြည်နယ် / တိုင်း</Label>
                   <Select
-                    value={form.regionId?.toString() || undefined}
+                    value={form.regionId?.toString() || 'none'}
                     onValueChange={handleRegionChange}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="ပြည်နယ် / တိုင်း ရွေးပါ" />
+                      <SelectValue placeholder="ရွေးချယ်ပါ" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">-</SelectItem>
                       {regions.map((r) => (
                         <SelectItem key={r.id} value={r.id.toString()}>
                           {r.nameMm}
@@ -338,16 +478,22 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-[#595959]">Township</Label>
+                  <Label className="text-[#595959]">မြို့နယ်</Label>
                   <Select
-                    value={form.townshipId?.toString() || undefined}
-                    onValueChange={(v) => setForm({ ...form, townshipId: parseInt(v) })}
+                    value={form.townshipId?.toString() || 'none'}
+                    onValueChange={(v) =>
+                      setForm({
+                        ...form,
+                        townshipId: v === 'none' ? null : parseInt(v),
+                      })
+                    }
                     disabled={!form.regionId}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="မြို့နယ် ရွေးပါ" />
+                      <SelectValue placeholder="ရွေးချယ်ပါ" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">-</SelectItem>
                       {townships.map((t) => (
                         <SelectItem key={t.id} value={t.id.toString()}>
                           {t.nameMm}
@@ -363,23 +509,23 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-[#595959]">Address</Label>
+                  <Label className="text-[#595959]">လိပ်စာ</Label>
                   <Input
                     value={form.address || ''}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
                     maxLength={400}
-                    placeholder="လိပ်စာ"
+                    placeholder="အိမ်အမှတ်/လမ်း/ရပ်ကွက် ထည့်ပါ"
                   />
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-[#595959]">Remark</Label>
+                  <Label className="text-[#595959]">REMARK</Label>
                   <Textarea
                     value={form.remark || ''}
                     onChange={(e) => setForm({ ...form, remark: e.target.value })}
                     maxLength={1000}
-                    rows={4}
-                    placeholder="မှတ်ချက်"
+                    rows={3}
+                    placeholder="remark"
                   />
                 </div>
               </div>

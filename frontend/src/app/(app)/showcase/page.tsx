@@ -217,7 +217,7 @@ function PhotoSlot({
           className="relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-lg border border-dashed border-[#d9d9d9] bg-[#fafafa] dark:border-neutral-700 dark:bg-neutral-950"
         >
           {resolvedPreview ? (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img src={resolvedPreview} alt={label} className="h-full w-full object-contain" />
           ) : (
             <>

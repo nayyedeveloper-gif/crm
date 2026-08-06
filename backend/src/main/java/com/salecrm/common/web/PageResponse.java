@@ -28,4 +28,18 @@ public record PageResponse<T>(
                 page.hasPrevious()
         );
     }
+
+    public static <T> PageResponse<T> of(List<T> content, int page, int size, long totalElements) {
+        int safeSize = Math.max(size, 1);
+        int totalPages = (int) Math.ceil((double) totalElements / safeSize);
+        return new PageResponse<>(
+                content,
+                page,
+                size,
+                totalElements,
+                totalPages,
+                page + 1 < totalPages,
+                page > 0
+        );
+    }
 }

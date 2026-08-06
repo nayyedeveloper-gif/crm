@@ -27,7 +27,7 @@ export function ShopProductImage({
   return (
     <div className={cn('relative aspect-square overflow-hidden bg-[#f2f2f7]', className)}>
       {src && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element
+         
         <img
           src={src}
           alt={alt}

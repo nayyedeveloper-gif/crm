@@ -412,7 +412,7 @@ export function ShopHeader({
           ) : (
             <>
               <Link href="/shop" className="flex min-w-0 flex-1 items-center gap-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                { }
                 <img src="/logo.png" alt="" className="h-8 w-8 shrink-0 object-contain" />
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-semibold tracking-tight text-[#1c1c1e]">

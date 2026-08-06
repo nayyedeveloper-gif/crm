@@ -86,7 +86,7 @@ export default function ShopFavouritesPage() {
                       className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f2f2f7]"
                     >
                       {img ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={img} alt="" className="h-full w-full object-contain" />
                       ) : null}
                     </Link>

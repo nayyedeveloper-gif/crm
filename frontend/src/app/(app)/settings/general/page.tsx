@@ -552,7 +552,7 @@ export default function GeneralSettingsPage() {
         <div className="space-y-2">
           <Label>Invitation image</Label>
           <div className="flex flex-wrap items-start gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               src={
                 inviteImageUrl
@@ -653,7 +653,7 @@ export default function GeneralSettingsPage() {
           <Label>MMQR image</Label>
           <div className="flex flex-wrap items-start gap-3">
             {mmqrImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img
                 src={`/api${mmqrImageUrl.startsWith('/') ? mmqrImageUrl : `/${mmqrImageUrl}`}?v=1`}
                 alt="MMQR preview"

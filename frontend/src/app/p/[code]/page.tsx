@@ -171,7 +171,7 @@ export default function PublicProductPage() {
             >
               {mainSrc ? (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  { }
                   <img
                     src={mainSrc}
                     alt={product.name}
@@ -211,7 +211,7 @@ export default function PublicProductPage() {
                       i === activeImg ? 'border-[#007aff]' : 'border-[#e5e5ea]'
                     )}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    { }
                     <img
                       src={item.src!}
                       alt={item.label}
@@ -413,7 +413,7 @@ export default function PublicProductPage() {
                   >
                     <div className="aspect-square bg-[#f2f2f7]">
                       {img ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img src={img} alt={r.name} className="h-full w-full object-contain" />
                       ) : (
                         <div className="flex h-full items-center justify-center bg-[#e5e5ea] text-xs text-[#8e8e93]">
@@ -460,7 +460,7 @@ export default function PublicProductPage() {
               <X className="h-4 w-4" />
             </button>
             <p className="mb-2 text-center text-sm text-white/90">{zoom.label}</p>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               src={zoom.src}
               alt={zoom.label}

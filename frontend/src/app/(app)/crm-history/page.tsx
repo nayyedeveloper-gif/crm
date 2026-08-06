@@ -8,10 +8,11 @@ import type {
   PageResponse,
   CrmHistoryResponse,
   ActionType,
+  InviteStatus,
   RegionResponse,
   TownshipResponse,
 } from '@/types';
-import { ACTION_TYPE_LABELS, ACTION_TYPE_COLORS } from '@/types';
+import { ACTION_TYPE_LABELS, ACTION_TYPE_COLORS, INVITE_STATUS_LABELS, INVITE_STATUS_COLORS } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +34,7 @@ import {
 } from '@/components/ui/table';
 import { Search, Plus, Eye, Pencil, Trash2, Download, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { cn, formatCurrency, formatDateTime } from '@/lib/utils';
+import { CRM_PERMISSION_KEYS, usePermissionStore } from '@/lib/permission-store';
 import {
   Dialog,
   DialogContent,
@@ -43,10 +45,19 @@ import {
 } from '@/components/ui/dialog';
 
 const ACTION_TYPES: ActionType[] = ['PURCHASE', 'INQUIRY', 'FOLLOW_UP', 'COMPLAINT', 'OTHER'];
+const INVITE_STATUSES: InviteStatus[] = [
+  'ATTEND',
+  'NOT_ATTEND',
+  'UNREACHABLE',
+  'NOT_ANSWERED',
+  'PHONE_OFF',
+];
 
 export default function CrmHistoryListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const canEditCrm = usePermissionStore((s) => s.canEditCrm());
+  const canExport = usePermissionStore((s) => s.can(CRM_PERMISSION_KEYS.crmExport));
 
   const [data, setData] = useState<PageResponse<CrmHistoryResponse> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +67,7 @@ export default function CrmHistoryListPage() {
 
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [actionType, setActionType] = useState(searchParams.get('actionType') || 'all');
+  const [inviteStatus, setInviteStatus] = useState(searchParams.get('inviteStatus') || 'all');
   const [phone, setPhone] = useState(searchParams.get('phone') || '');
   const [regionId, setRegionId] = useState(searchParams.get('regionId') || 'all');
   const [townshipId, setTownshipId] = useState(searchParams.get('townshipId') || 'all');
@@ -72,6 +84,7 @@ export default function CrmHistoryListPage() {
     params.set('size', size.toString());
     if (search) params.set('search', search);
     if (actionType !== 'all') params.set('actionType', actionType);
+    if (inviteStatus !== 'all') params.set('inviteStatus', inviteStatus);
     if (phone) params.set('phone', phone);
     if (regionId !== 'all') params.set('regionId', regionId);
     if (townshipId !== 'all') params.set('townshipId', townshipId);
@@ -89,7 +102,7 @@ export default function CrmHistoryListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, size, search, actionType, phone, regionId, townshipId, searchParams]);
+  }, [page, size, search, actionType, inviteStatus, phone, regionId, townshipId, searchParams]);
 
   useEffect(() => {
     api.get<ApiResponse<RegionResponse[]>>('/locations/regions').then(({ data }) => {
@@ -122,6 +135,7 @@ export default function CrmHistoryListPage() {
   const handleReset = () => {
     setSearch('');
     setActionType('all');
+    setInviteStatus('all');
     setPhone('');
     setRegionId('all');
     setTownshipId('all');
@@ -146,13 +160,13 @@ export default function CrmHistoryListPage() {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (actionType !== 'all') params.set('actionType', actionType);
+    if (inviteStatus !== 'all') params.set('inviteStatus', inviteStatus);
     if (phone) params.set('phone', phone);
     if (regionId !== 'all') params.set('regionId', regionId);
     if (townshipId !== 'all') params.set('townshipId', townshipId);
     const branchId = searchParams.get('branchId');
     if (branchId) params.set('branchId', branchId);
 
-    const token = localStorage.getItem('accessToken');
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || '/api';
     window.open(`${baseUrl}/crm-history/export?${params.toString()}`, '_blank');
   };
@@ -165,14 +179,18 @@ export default function CrmHistoryListPage() {
           <p className="text-sm text-muted-foreground">Manage customer interaction records</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExport}>
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-          <Button className="flex-1 sm:flex-none" onClick={() => router.push('/crm-history/new')}>
-            <Plus className="h-4 w-4" />
-            New Record
-          </Button>
+          {canExport && (
+            <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExport}>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          )}
+          {canEditCrm && (
+            <Button className="flex-1 sm:flex-none" onClick={() => router.push('/crm-history/new')}>
+              <Plus className="h-4 w-4" />
+              Create
+            </Button>
+          )}
         </div>
       </div>
 
@@ -199,6 +217,22 @@ export default function CrmHistoryListPage() {
                   {ACTION_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>
                       {ACTION_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Invite Status</label>
+              <Select value={inviteStatus} onValueChange={setInviteStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {INVITE_STATUSES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {INVITE_STATUS_LABELS[t]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -273,11 +307,18 @@ export default function CrmHistoryListPage() {
               {/* Mobile cards */}
               <div className="space-y-2 p-3 md:hidden">
                 {data.content.map((item, index) => (
-                  <button
+                  <div
                     key={item.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className="w-full rounded-xl border border-[#f0f0f0] bg-white p-3.5 text-left active:bg-[#fafafa] dark:border-neutral-800 dark:bg-neutral-900"
                     onClick={() => router.push(`/crm-history/${item.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        router.push(`/crm-history/${item.id}`);
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -289,6 +330,14 @@ export default function CrmHistoryListPage() {
                           >
                             {ACTION_TYPE_LABELS[item.actionType]}
                           </Badge>
+                          {item.inviteStatus && (
+                            <Badge
+                              variant="outline"
+                              className={cn('shrink-0', INVITE_STATUS_COLORS[item.inviteStatus])}
+                            >
+                              {INVITE_STATUS_LABELS[item.inviteStatus]}
+                            </Badge>
+                          )}
                         </div>
                         <p className="mt-1 truncate text-[15px] font-semibold text-[#262626] dark:text-neutral-100">
                           {item.customerName}
@@ -344,7 +393,7 @@ export default function CrmHistoryListPage() {
                         Delete
                       </Button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
 
@@ -358,6 +407,7 @@ export default function CrmHistoryListPage() {
                     <TableHead>Phone</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Action</TableHead>
+                    <TableHead>Invite</TableHead>
                     <TableHead>Branch</TableHead>
                     <TableHead>Remark</TableHead>
                     <TableHead>Created At</TableHead>
@@ -380,6 +430,18 @@ export default function CrmHistoryListPage() {
                         >
                           {ACTION_TYPE_LABELS[item.actionType]}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {item.inviteStatus ? (
+                          <Badge
+                            variant="outline"
+                            className={INVITE_STATUS_COLORS[item.inviteStatus]}
+                          >
+                            {INVITE_STATUS_LABELS[item.inviteStatus]}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">{item.branchName}</TableCell>
                       <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Cropper, { type Area, type MediaSize, type Point } from 'react-easy-crop';
+import Cropper, { type Area, type Point } from 'react-easy-crop';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -246,7 +246,7 @@ export function ImageCropRotateDialog({
     setCroppedAreaPixels(pixels);
   }, []);
 
-  const onMediaLoaded = useCallback((_size: MediaSize) => {
+  const onMediaLoaded = useCallback(() => {
     setMediaReady(true);
   }, []);
 
@@ -499,7 +499,7 @@ export function ImageCropRotateDialog({
                   >
                     <div className="relative aspect-square bg-[#f5f5f5] dark:bg-neutral-950">
                       {imageSrc ? (
-                        // eslint-disable-next-line @next/next/no-img-element
+                         
                         <img
                           src={imageSrc}
                           alt=""

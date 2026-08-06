@@ -142,7 +142,7 @@ export function InvitationPopup({ copy }: { copy: ShopCopy }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div className="relative mx-4 mt-1 aspect-[4/5] overflow-hidden rounded-2xl bg-[#e5e5ea] sm:aspect-[16/11]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img src={img} alt="" className="h-full w-full object-cover" />
           </div>
 

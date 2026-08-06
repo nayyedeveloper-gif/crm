@@ -59,6 +59,22 @@ public class CrmHistory extends BaseEntity {
     @Builder.Default
     private ActionType actionType = ActionType.PURCHASE;
 
+    /** Legacy Laravel invite_status (attend / not_attend / …). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "invite_status", length = 40)
+    private InviteStatus inviteStatus;
+
+    @Column(name = "customer_condition", length = 120)
+    private String customerCondition;
+
+    /** Source id from Laravel {@code crm_histories.id} for idempotent import. */
+    @Column(name = "legacy_id")
+    private Long legacyId;
+
+    /** Source legacy users.id from Laravel {@code crm_histories.created_by}. */
+    @Column(name = "legacy_created_by_user_id")
+    private Long legacyCreatedByUserId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "region_id", foreignKey = @ForeignKey(name = "fk_crm_region"))
     private Region region;

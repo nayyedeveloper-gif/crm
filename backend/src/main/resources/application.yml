@@ -91,6 +91,16 @@ management:
       show-details: when-authorized
 
 app:
+  # Laravel shop_sales MySQL (shared during migration). Off by default so local PG-only still boots.
+  legacy-mysql:
+    enabled: ${LEGACY_MYSQL_ENABLED:false}
+    url: ${LEGACY_MYSQL_URL:jdbc:mysql://127.0.0.1:3307/shop_sales?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Yangon}
+    username: ${LEGACY_MYSQL_USERNAME:shop_sale_java}
+    password: ${LEGACY_MYSQL_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${LEGACY_MYSQL_POOL_MAX:10}
+      minimum-idle: ${LEGACY_MYSQL_POOL_MIN:2}
+      pool-name: LegacyShopSalesHikari
   security:
     jwt:
       # Override in production via env; must be a Base64 secret >= 256 bits

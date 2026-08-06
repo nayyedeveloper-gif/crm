@@ -2,6 +2,7 @@ package com.salecrm.crmhistory.dto;
 
 import com.salecrm.crmhistory.entity.ActionType;
 import com.salecrm.crmhistory.entity.CrmHistory;
+import com.salecrm.crmhistory.entity.InviteStatus;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -46,6 +47,10 @@ public final class CrmHistorySpec {
                 predicates.add(cb.equal(root.get("actionType"), filter.actionType()));
             }
 
+            if (filter.inviteStatus() != null) {
+                predicates.add(cb.equal(root.get("inviteStatus"), filter.inviteStatus()));
+            }
+
             if (StringUtils.hasText(filter.phone())) {
                 predicates.add(cb.equal(root.get("phone"), filter.phone()));
             }
@@ -64,7 +69,7 @@ public final class CrmHistorySpec {
 
     public static Specification<CrmHistory> withFilter(CrmHistoryFilter filter, ActionType actionType) {
         return withFilter(new CrmHistoryFilter(
-                filter.branchId(), filter.search(), actionType,
+                filter.branchId(), filter.search(), actionType, filter.inviteStatus(),
                 filter.phone(), filter.regionId(), filter.townshipId()
         ));
     }

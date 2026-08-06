@@ -93,6 +93,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [newInquiryCount, setNewInquiryCount] = useState(0);
   const [pendingOrderCount, setPendingOrderCount] = useState(0);
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
+  const [crmMenuOpen, setCrmMenuOpen] = useState(false);
   const [salesMenuOpen, setSalesMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -237,6 +238,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/shop-users');
 
   const salesActive = pathname.startsWith('/sales');
+  const crmActive =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/crm-history') ||
+    pathname.startsWith('/performance') ||
+    pathname.startsWith('/report');
+
+  useEffect(() => {
+    if (crmActive) setCrmMenuOpen(true);
+  }, [crmActive]);
 
   useEffect(() => {
     if (shopActive) setShopMenuOpen(true);
@@ -316,6 +326,48 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
 
   const shopBadgeCount = newInquiryCount + pendingOrderCount;
+
+  const crmSubLinks = [
+    {
+      href: '/dashboard',
+      label: 'CRM Dashboard',
+      icon: LayoutDashboard,
+      match: (p: string) => p.startsWith('/dashboard') && !p.startsWith('/shop-dashboard'),
+      show: showCrmDashboard,
+    },
+    {
+      href: '/crm-history',
+      label: 'CRM History',
+      icon: History,
+      match: (p: string) =>
+        p === '/crm-history' ||
+        (p.startsWith('/crm-history/') && !p.endsWith('/new') && !p.includes('/edit')),
+      show: showCrmHistory,
+    },
+    {
+      href: '/crm-history/new',
+      label: 'Create or New Record',
+      icon: Plus,
+      match: (p: string) => p === '/crm-history/new',
+      show: showNewRecord,
+    },
+    {
+      href: '/performance',
+      label: 'Performance',
+      icon: BarChart3,
+      match: (p: string) => p.startsWith('/performance'),
+      show: showPerformance,
+    },
+    {
+      href: '/report',
+      label: 'Report',
+      icon: FileBarChart,
+      match: (p: string) => p.startsWith('/report'),
+      show: showReport,
+    },
+  ].filter((link) => link.show);
+
+  const showCrmMenu = crmSubLinks.length > 0;
 
   const shopSubLinks = [
     {
@@ -530,31 +582,78 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navButtons = (side = false) => (
     <>
-      {showCrmDashboard && (
-        <CrmNavLink
-          href="/dashboard"
-          side={side}
-          active={pathname.startsWith('/dashboard') && !pathname.startsWith('/shop-dashboard')}
-        >
-          <LayoutDashboard className="h-3.5 w-3.5" />
-          Dashboard
-        </CrmNavLink>
-      )}
-      {showCrmHistory && (
-        <CrmNavLink
-          href="/crm-history"
-          side={side}
-          active={
-            pathname === '/crm-history' ||
-            (pathname.startsWith('/crm-history/') &&
-              !pathname.endsWith('/new') &&
-              !pathname.includes('/edit'))
-          }
-        >
-          <History className="h-3.5 w-3.5" />
-          CRM History
-        </CrmNavLink>
-      )}
+      {showCrmMenu &&
+        (side ? (
+          <div className="space-y-0.5">
+            <button
+              type="button"
+              onClick={() => setCrmMenuOpen((o) => !o)}
+              className={cn(
+                'inline-flex h-9 w-full items-center gap-2 justify-start rounded px-3 text-sm font-normal',
+                crmActive
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+              )}
+            >
+              <LayoutDashboard className="h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1 text-left">CRM</span>
+              <ChevronDown
+                className={cn('h-3.5 w-3.5 shrink-0 transition-transform', crmMenuOpen && 'rotate-180')}
+              />
+            </button>
+            {crmMenuOpen && (
+              <div className="ml-3 space-y-0.5 border-l border-white/10 pl-2">
+                {crmSubLinks.map((link) => {
+                  const Icon = link.icon;
+                  return (
+                    <CrmNavLink
+                      key={link.href}
+                      href={link.href}
+                      side
+                      active={link.match(pathname)}
+                      className="h-8 pl-2"
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span className="flex-1 text-left">{link.label}</span>
+                    </CrmNavLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className={navItem(crmActive, false)}>
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                CRM
+                <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel>CRM</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {crmSubLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <DropdownMenuItem key={link.href} asChild>
+                    <Link
+                      href={link.href}
+                      prefetch
+                      className={cn(
+                        'flex w-full cursor-default items-center gap-2',
+                        link.match(pathname) && 'bg-accent text-accent-foreground'
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span className="flex-1">{link.label}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ))}
       {showShowcase && (
         <CrmNavLink href="/showcase" side={side} active={pathname.startsWith('/showcase')}>
           <LayoutGrid className="h-3.5 w-3.5" />
@@ -628,18 +727,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </DropdownMenuContent>
           </DropdownMenu>
         ))}
-      {showPerformance && (
-        <CrmNavLink href="/performance" side={side} active={pathname.startsWith('/performance')}>
-          <BarChart3 className="h-3.5 w-3.5" />
-          Performance
-        </CrmNavLink>
-      )}
-      {showReport && (
-        <CrmNavLink href="/report" side={side} active={pathname.startsWith('/report')}>
-          <FileBarChart className="h-3.5 w-3.5" />
-          Report
-        </CrmNavLink>
-      )}
       {showHelp && (
         <CrmNavLink href="/help" side={side} active={pathname.startsWith('/help')}>
           <BookOpen className="h-3.5 w-3.5" />
@@ -737,12 +824,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </DropdownMenu>
         ))}
 
-      {showNewRecord && (
-        <CrmNavLink href="/crm-history/new" side={side} active={pathname === '/crm-history/new'}>
-          <Plus className="h-3.5 w-3.5" />
-          New Record
-        </CrmNavLink>
-      )}
     </>
   );
 
@@ -997,15 +1078,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
 
               <div className="space-y-1">
-                {showCrmDashboard && (
-                  <button type="button" className="crm-more-row" onClick={() => goMobile('/dashboard')}>
-                    <LayoutDashboard className="h-4 w-4" /> Dashboard
-                  </button>
-                )}
-                {showCrmHistory && (
-                  <button type="button" className="crm-more-row" onClick={() => goMobile('/crm-history')}>
-                    <History className="h-4 w-4" /> CRM History
-                  </button>
+                {showCrmMenu && (
+                  <>
+                    <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-[#8c8c8c]">
+                      CRM
+                    </p>
+                    {crmSubLinks.map((link) => {
+                      const Icon = link.icon;
+                      return (
+                        <button
+                          key={link.href}
+                          type="button"
+                          className="crm-more-row"
+                          onClick={() => goMobile(link.href)}
+                        >
+                          <Icon className="h-4 w-4" /> {link.label}
+                        </button>
+                      );
+                    })}
+                  </>
                 )}
                 {showShowcase && (
                   <button type="button" className="crm-more-row" onClick={() => goMobile('/showcase')}>
@@ -1028,21 +1119,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       </button>
                     ))}
                   </>
-                )}
-                {showNewRecord && (
-                  <button type="button" className="crm-more-row" onClick={() => goMobile('/crm-history/new')}>
-                    <Plus className="h-4 w-4" /> New Record
-                  </button>
-                )}
-                {showPerformance && (
-                  <button type="button" className="crm-more-row" onClick={() => goMobile('/performance')}>
-                    <BarChart3 className="h-4 w-4" /> Performance
-                  </button>
-                )}
-                {showReport && (
-                  <button type="button" className="crm-more-row" onClick={() => goMobile('/report')}>
-                    <FileBarChart className="h-4 w-4" /> Report
-                  </button>
                 )}
                 {showHelp && (
                   <button type="button" className="crm-more-row" onClick={() => goMobile('/help')}>

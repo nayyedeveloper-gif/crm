@@ -161,7 +161,7 @@ export function PwaInstallPrompt({ className }: { className?: string }) {
       <div className="mx-auto max-w-lg overflow-hidden rounded-2xl bg-white shadow-[0_12px_40px_rgba(0,0,0,0.14)] ring-1 ring-black/5">
         <div className="flex items-start gap-3.5 p-4">
           <div className="mt-0.5 flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-white shadow-sm ring-1 ring-[#e5e5ea]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               src="/icons/icon-192.png"
               alt=""

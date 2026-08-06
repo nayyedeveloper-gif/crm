@@ -90,7 +90,7 @@ function ProductPhotoSlot({
         )}
       >
         {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img src={preview} alt={label} className={cn('h-full w-full', objectClass)} />
         ) : (
           <>
@@ -1009,7 +1009,7 @@ export default function ProductsPage() {
                 >
                   <div className="relative aspect-square bg-[#fafafa] dark:bg-neutral-950 sm:aspect-[4/3]">
                     {cover ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                       
                       <img src={cover} alt={p.name} className="h-full w-full object-cover sm:object-contain" />
                     ) : (
                       <div className="flex h-full items-center justify-center text-[#d9d9d9]">
@@ -1401,7 +1401,7 @@ export default function ProductsPage() {
               <p className="text-center text-xs text-primary">{qrProduct.productCode}</p>
               <p className="text-center text-sm font-medium">{qrProduct.name}</p>
               {qrDataUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
+                 
                 <img src={qrDataUrl} alt="QR code" className="rounded border border-[#f0f0f0]" />
               )}
               <p className="break-all text-center text-[11px] text-[#8c8c8c]">

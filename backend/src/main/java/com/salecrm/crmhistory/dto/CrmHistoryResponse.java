@@ -1,6 +1,7 @@
 package com.salecrm.crmhistory.dto;
 
 import com.salecrm.crmhistory.entity.ActionType;
+import com.salecrm.crmhistory.entity.InviteStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,6 +17,8 @@ public record CrmHistoryResponse(
         LocalDate birthday,
         BigDecimal amount,
         ActionType actionType,
+        InviteStatus inviteStatus,
+        String customerCondition,
         Long regionId,
         String regionName,
         Long townshipId,
@@ -23,6 +26,8 @@ public record CrmHistoryResponse(
         String nrc,
         String address,
         String remark,
+        Long legacyId,
+        Long legacyCreatedByUserId,
         Instant createdAt,
         Instant updatedAt,
         String createdBy,

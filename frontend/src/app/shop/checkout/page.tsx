@@ -268,7 +268,7 @@ export default function ShopCheckoutPage() {
                         className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#e5e5ea]"
                       >
                         {img ? (
-                          // eslint-disable-next-line @next/next/no-img-element
+                           
                           <img src={img} alt="" className="h-full w-full object-contain" />
                         ) : null}
                       </Link>
@@ -370,7 +370,7 @@ export default function ShopCheckoutPage() {
                   <div className="flex flex-col items-center gap-3 bg-[#fafafa] px-4 py-5">
                     {mmqrSrc ? (
                       <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-[#e5e5ea]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        { }
                         <img
                           src={mmqrSrc}
                           alt="MMQR"

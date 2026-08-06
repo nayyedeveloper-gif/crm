@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import api from '@/lib/api';
 import type { ApiResponse, CrmHistoryResponse } from '@/types';
-import { ACTION_TYPE_LABELS, ACTION_TYPE_COLORS } from '@/types';
+import { ACTION_TYPE_LABELS, ACTION_TYPE_COLORS, INVITE_STATUS_LABELS, INVITE_STATUS_COLORS } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -74,6 +74,8 @@ export default function CrmHistoryDetailPage() {
     { label: 'ဖုန်းနံပါတ်', value: data.phone },
     { label: 'မွေးနေ့', value: formatDate(data.birthday) },
     { label: 'ပမာဏ', value: formatCurrency(data.amount) },
+    { label: 'Invite Status', value: data.inviteStatus ? INVITE_STATUS_LABELS[data.inviteStatus] : '-' },
+    { label: 'ဖောက်သည်အခြေအနေ', value: data.customerCondition || '-' },
     { label: 'ဆိုင်', value: data.branchName },
     { label: 'တိုင်းဒေသကြီး / ပြည်နယ်', value: data.regionName || '-' },
     { label: 'မြို့နယ်', value: data.townshipName || '-' },
@@ -140,9 +142,16 @@ export default function CrmHistoryDetailPage() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle>ဖောက်သည်အချက်အလက်</CardTitle>
-            <Badge variant="outline" className={ACTION_TYPE_COLORS[data.actionType]}>
-              {ACTION_TYPE_LABELS[data.actionType]}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className={ACTION_TYPE_COLORS[data.actionType]}>
+                {ACTION_TYPE_LABELS[data.actionType]}
+              </Badge>
+              {data.inviteStatus && (
+                <Badge variant="outline" className={INVITE_STATUS_COLORS[data.inviteStatus]}>
+                  {INVITE_STATUS_LABELS[data.inviteStatus]}
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
