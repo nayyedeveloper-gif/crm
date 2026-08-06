@@ -62,6 +62,15 @@ const AMOUNT_BUCKETS = [
   { value: 'amount_other', label: 'အခြား', key: 'amountOther' as const },
 ];
 
+function amountBucketLabel(amount: number): string {
+  if (amount >= 100000000) return '1000 အထက်';
+  if (amount >= 50000000) return '500 - 1000';
+  if (amount >= 30000000) return '300 - 500';
+  if (amount >= 10000000) return '100 - 300';
+  if (amount >= 5000000) return '50 - 100';
+  return 'အခြား';
+}
+
 export default function CrmHistoryListPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -75,11 +84,9 @@ export default function CrmHistoryListPage() {
   const [townships, setTownships] = useState<TownshipResponse[]>([]);
   const [townshipRegionId, setTownshipRegionId] = useState<string>('');
 
-  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [actionType, setActionType] = useState(searchParams.get('actionType') || 'all');
   const [inviteStatus, setInviteStatus] = useState(searchParams.get('inviteStatus') || 'all');
   const [phone, setPhone] = useState(searchParams.get('phone') || '');
-  const [createdBy, setCreatedBy] = useState(searchParams.get('createdBy') || '');
   const [fromDate, setFromDate] = useState(searchParams.get('fromDate') || '');
   const [toDate, setToDate] = useState(searchParams.get('toDate') || '');
   const [amountBucket, setAmountBucket] = useState(searchParams.get('amountBucket') || 'all');
@@ -96,11 +103,9 @@ export default function CrmHistoryListPage() {
     const params = new URLSearchParams();
     params.set('page', page.toString());
     params.set('size', size.toString());
-    if (search) params.set('search', search);
     if (actionType !== 'all') params.set('actionType', actionType);
     if (inviteStatus !== 'all') params.set('inviteStatus', inviteStatus);
     if (phone) params.set('phone', phone);
-    if (createdBy) params.set('createdBy', createdBy);
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     if (amountBucket !== 'all') params.set('amountBucket', amountBucket);
@@ -128,7 +133,7 @@ export default function CrmHistoryListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, size, search, actionType, inviteStatus, phone, createdBy, fromDate, toDate, amountBucket, regionId, townshipId, searchParams]);
+  }, [page, size, actionType, inviteStatus, phone, fromDate, toDate, amountBucket, regionId, townshipId, searchParams]);
 
   useEffect(() => {
     api.get<ApiResponse<RegionResponse[]>>('/locations/regions').then(({ data }) => {
@@ -159,11 +164,9 @@ export default function CrmHistoryListPage() {
   };
 
   const handleReset = () => {
-    setSearch('');
     setActionType('all');
     setInviteStatus('all');
     setPhone('');
-    setCreatedBy('');
     setFromDate('');
     setToDate('');
     setAmountBucket('all');
@@ -188,11 +191,9 @@ export default function CrmHistoryListPage() {
 
   const handleExport = () => {
     const params = new URLSearchParams();
-    if (search) params.set('search', search);
     if (actionType !== 'all') params.set('actionType', actionType);
     if (inviteStatus !== 'all') params.set('inviteStatus', inviteStatus);
     if (phone) params.set('phone', phone);
-    if (createdBy) params.set('createdBy', createdBy);
     if (fromDate) params.set('fromDate', fromDate);
     if (toDate) params.set('toDate', toDate);
     if (amountBucket !== 'all') params.set('amountBucket', amountBucket);
@@ -205,24 +206,55 @@ export default function CrmHistoryListPage() {
     window.open(`${baseUrl}/crm-history/export?${params.toString()}`, '_blank');
   };
 
+  const handleTemplate = () => {
+    const headers = [
+      'customer_name',
+      'phone_number',
+      'date_of_birth',
+      'region',
+      'township',
+      'amount_range',
+      'invite_status',
+      'address',
+      'created_by',
+      'action',
+    ];
+    const blob = new Blob([headers.join(',') + '\n'], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'crm-history-template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="hidden md:block">
           <h1 className="text-xl font-bold md:text-2xl">CRM History</h1>
-          <p className="text-sm text-muted-foreground">Manage customer interaction records</p>
+          <p className="text-sm text-muted-foreground">
+            ဖောက်သည်တို့၏ customer history များ · စုစုပေါင်း {data?.totalElements?.toLocaleString() || '0'} ခု
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" className="flex-1 sm:flex-none" onClick={handleTemplate}>
+            <Download className="h-4 w-4" />
+            Template
+          </Button>
+          <Button variant="outline" className="flex-1 sm:flex-none" disabled>
+            Import Excel
+          </Button>
           {canExport && (
             <Button variant="outline" className="flex-1 sm:flex-none" onClick={handleExport}>
               <Download className="h-4 w-4" />
-              Export
+              Excel Export
             </Button>
           )}
           {canEditCrm && (
             <Button className="flex-1 sm:flex-none" onClick={() => router.push('/crm-history/new')}>
               <Plus className="h-4 w-4" />
-              Create
+              Form ဖြည့်မည်
             </Button>
           )}
         </div>
@@ -230,20 +262,11 @@ export default function CrmHistoryListPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Search</label>
-              <Input
-                placeholder="Name, phone, remark..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Action Type</label>
+              <label className="text-xs font-medium text-muted-foreground">Action</label>
               <Select value={actionType} onValueChange={setActionType}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -257,9 +280,9 @@ export default function CrmHistoryListPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Invite Status</label>
+              <label className="text-xs font-medium text-muted-foreground">Status</label>
               <Select value={inviteStatus} onValueChange={setInviteStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,8 +296,9 @@ export default function CrmHistoryListPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Phone</label>
+              <label className="text-xs font-medium text-muted-foreground">ဖုန်း</label>
               <Input
+                className="h-9"
                 placeholder="Phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -282,18 +306,9 @@ export default function CrmHistoryListPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Created By</label>
-              <Input
-                placeholder="ဖန်တီးသူ"
-                value={createdBy}
-                onChange={(e) => setCreatedBy(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Amount Range</label>
+              <label className="text-xs font-medium text-muted-foreground">Amount (သိန်း)</label>
               <Select value={amountBucket} onValueChange={setAmountBucket}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -307,17 +322,17 @@ export default function CrmHistoryListPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">From Date</label>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <label className="text-xs font-medium text-muted-foreground">ရက်စွဲမှ</label>
+              <Input className="h-9" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">To Date</label>
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <label className="text-xs font-medium text-muted-foreground">ရက်စွဲသို့</label>
+              <Input className="h-9" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Region</label>
+              <label className="text-xs font-medium text-muted-foreground">တိုင်း/ပြည်နယ်</label>
               <Select value={regionId} onValueChange={setRegionId}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -331,13 +346,13 @@ export default function CrmHistoryListPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Township</label>
+              <label className="text-xs font-medium text-muted-foreground">မြို့နယ်</label>
               <Select
                 value={townshipId}
                 onValueChange={setTownshipId}
                 disabled={!townshipRegionId}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
@@ -351,7 +366,7 @@ export default function CrmHistoryListPage() {
               </Select>
             </div>
           </div>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-3 flex items-center gap-2">
             <Button size="sm" onClick={handleFilter}>
               <Search className="h-4 w-4" />
               Filter
@@ -387,6 +402,9 @@ export default function CrmHistoryListPage() {
             </button>
           );
         })}
+        <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs text-[#4b5563] dark:border-neutral-700 dark:bg-neutral-900">
+          စုစုပေါင်း <span className="font-semibold">({amountSummary?.total?.toLocaleString() || '0'})</span>
+        </span>
       </div>
 
       <Card>
@@ -445,7 +463,7 @@ export default function CrmHistoryListPage() {
                       </p>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2 text-xs text-[#8c8c8c]">
-                      <span className="truncate">{item.branchName} · {item.createdBy || '-'}</span>
+                      <span className="truncate">{item.branchName}</span>
                       <span className="shrink-0">{formatDateTime(item.createdAt)}</span>
                     </div>
                     {item.remark && (
@@ -501,15 +519,12 @@ export default function CrmHistoryListPage() {
                     <TableHead>No.</TableHead>
                     <TableHead>Customer Name</TableHead>
                     <TableHead>Phone</TableHead>
-                    <TableHead>DOB</TableHead>
+                    <TableHead>မွေးနေ့</TableHead>
+                    <TableHead>ပြည်နယ်/မြို့နယ်</TableHead>
                     <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>လိပ်စာ</TableHead>
                     <TableHead>Action</TableHead>
-                    <TableHead>Invite</TableHead>
-                    <TableHead>Branch</TableHead>
-                    <TableHead>Region/Township</TableHead>
-                    <TableHead>Created By</TableHead>
-                    <TableHead>Remark</TableHead>
-                    <TableHead>Created At</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -522,15 +537,10 @@ export default function CrmHistoryListPage() {
                       <TableCell className="font-medium">{item.customerName}</TableCell>
                       <TableCell>{item.phone}</TableCell>
                       <TableCell>{item.birthday || '-'}</TableCell>
-                      <TableCell className="font-mono">{formatCurrency(item.amount)}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={ACTION_TYPE_COLORS[item.actionType]}
-                        >
-                          {ACTION_TYPE_LABELS[item.actionType]}
-                        </Badge>
+                      <TableCell className="text-sm">
+                        {(item.regionName || '-') + ' / ' + (item.townshipName || '-')}
                       </TableCell>
+                      <TableCell className="font-mono">{amountBucketLabel(item.amount)}</TableCell>
                       <TableCell>
                         {item.inviteStatus ? (
                           <Badge
@@ -543,16 +553,11 @@ export default function CrmHistoryListPage() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-sm">{item.branchName}</TableCell>
-                      <TableCell className="text-sm">
-                        {(item.regionName || '-') + ' / ' + (item.townshipName || '-')}
-                      </TableCell>
-                      <TableCell className="text-sm">{item.createdBy || '-'}</TableCell>
-                      <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
-                        {item.remark || '-'}
+                      <TableCell className="max-w-[220px] truncate text-sm text-muted-foreground">
+                        {item.address || '-'}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDateTime(item.createdAt)}
+                        {ACTION_TYPE_LABELS[item.actionType]}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">

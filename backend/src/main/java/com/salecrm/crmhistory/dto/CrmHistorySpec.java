@@ -37,10 +37,8 @@ public final class CrmHistorySpec {
             if (StringUtils.hasText(filter.search())) {
                 String pattern = "%" + filter.search().toLowerCase() + "%";
                 predicates.add(cb.or(
-                        cb.like(cb.lower(root.get("customerName")), pattern),
                         cb.like(cb.lower(root.get("phone")), pattern),
-                        cb.like(cb.lower(root.get("remark")), pattern),
-                        cb.like(cb.lower(root.get("createdBy")), pattern)
+                        cb.like(cb.lower(root.get("remark")), pattern)
                 ));
             }
 
