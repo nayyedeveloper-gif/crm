@@ -37,7 +37,8 @@ public class CrmHistoryExcelExportService {
         Long effectiveBranchId = user.isCrossBranch() ? filter.branchId() : user.getBranchId();
         CrmHistoryFilter scopedFilter = new CrmHistoryFilter(
                 effectiveBranchId, filter.search(), filter.actionType(), filter.inviteStatus(),
-                filter.phone(), filter.regionId(), filter.townshipId()
+                filter.phone(), filter.createdBy(), filter.createdFrom(), filter.createdToExclusive(),
+                filter.amountBucket(), filter.regionId(), filter.townshipId()
         );
         return listWithFilter(scopedFilter);
     }
@@ -45,7 +46,8 @@ public class CrmHistoryExcelExportService {
     /** Unscoped dump for system backup jobs (ADMIN / scheduler only). */
     @Transactional(readOnly = true)
     public List<CrmHistoryResponse> listAllForBackup() {
-        return listWithFilter(new CrmHistoryFilter(null, null, null, null, null, null, null));
+        return listWithFilter(new CrmHistoryFilter(
+                null, null, null, null, null, null, null, null, null, null, null));
     }
 
     private List<CrmHistoryResponse> listWithFilter(CrmHistoryFilter scopedFilter) {

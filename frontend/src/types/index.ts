@@ -87,6 +87,16 @@ export interface CrmHistoryRequest {
   remark: string | null;
 }
 
+export interface CrmHistoryAmountSummary {
+  total: number;
+  amount50To100: number;
+  amount100To300: number;
+  amount300To500: number;
+  amount500To1000: number;
+  amountAbove1000: number;
+  amountOther: number;
+}
+
 export interface RegionResponse {
   id: number;
   code: string;

@@ -51,7 +51,8 @@ public class CrmHistoryService {
 
         CrmHistoryFilter scopedFilter = new CrmHistoryFilter(
                 effectiveBranchId, filter.search(), filter.actionType(), filter.inviteStatus(),
-                filter.phone(), filter.regionId(), filter.townshipId()
+                filter.phone(), filter.createdBy(), filter.createdFrom(), filter.createdToExclusive(),
+                filter.amountBucket(), filter.regionId(), filter.townshipId()
         );
 
         PageRequest pageRequest = PageRequest.of(page, size,
@@ -61,6 +62,28 @@ public class CrmHistoryService {
                 .findAll(CrmHistorySpec.withFilter(scopedFilter), pageRequest);
 
         return PageResponse.of(result, this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public CrmHistoryAmountSummary amountSummary(CrmHistoryFilter filter) {
+        UserPrincipal user = SecurityUtils.requireCurrentUser();
+        Long effectiveBranchId = resolveBranchId(user, filter.branchId());
+
+        CrmHistoryFilter base = new CrmHistoryFilter(
+                effectiveBranchId, filter.search(), filter.actionType(), filter.inviteStatus(),
+                filter.phone(), filter.createdBy(), filter.createdFrom(), filter.createdToExclusive(),
+                null, filter.regionId(), filter.townshipId()
+        );
+
+        long total = crmHistoryRepository.count(CrmHistorySpec.withFilter(base));
+        long b50 = countWithBucket(base, "amount_50_to_100");
+        long b100 = countWithBucket(base, "amount_100_to_300");
+        long b300 = countWithBucket(base, "amount_300_to_500");
+        long b500 = countWithBucket(base, "amount_500_to_1000");
+        long b1000 = countWithBucket(base, "amount_above_1000");
+        long other = countWithBucket(base, "amount_other");
+
+        return new CrmHistoryAmountSummary(total, b50, b100, b300, b500, b1000, other);
     }
 
     @Transactional(readOnly = true)
@@ -182,6 +205,15 @@ public class CrmHistoryService {
         if (!user.isCrossBranch() && !recordBranchId.equals(user.getBranchId())) {
             throw new ForbiddenBranchAccessException();
         }
+    }
+
+    private long countWithBucket(CrmHistoryFilter base, String amountBucket) {
+        CrmHistoryFilter f = new CrmHistoryFilter(
+                base.branchId(), base.search(), base.actionType(), base.inviteStatus(),
+                base.phone(), base.createdBy(), base.createdFrom(), base.createdToExclusive(),
+                amountBucket, base.regionId(), base.townshipId()
+        );
+        return crmHistoryRepository.count(CrmHistorySpec.withFilter(f));
     }
 
     private void publishEvent(CrmHistoryEvent event) {

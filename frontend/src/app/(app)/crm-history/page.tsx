@@ -7,6 +7,7 @@ import type {
   ApiResponse,
   PageResponse,
   CrmHistoryResponse,
+  CrmHistoryAmountSummary,
   ActionType,
   InviteStatus,
   RegionResponse,
@@ -52,6 +53,14 @@ const INVITE_STATUSES: InviteStatus[] = [
   'NOT_ANSWERED',
   'PHONE_OFF',
 ];
+const AMOUNT_BUCKETS = [
+  { value: 'amount_50_to_100', label: '50 - 100', key: 'amount50To100' as const },
+  { value: 'amount_100_to_300', label: '100 - 300', key: 'amount100To300' as const },
+  { value: 'amount_300_to_500', label: '300 - 500', key: 'amount300To500' as const },
+  { value: 'amount_500_to_1000', label: '500 - 1000', key: 'amount500To1000' as const },
+  { value: 'amount_above_1000', label: '1000 အထက်', key: 'amountAbove1000' as const },
+  { value: 'amount_other', label: 'အခြား', key: 'amountOther' as const },
+];
 
 export default function CrmHistoryListPage() {
   const router = useRouter();
@@ -60,6 +69,7 @@ export default function CrmHistoryListPage() {
   const canExport = usePermissionStore((s) => s.can(CRM_PERMISSION_KEYS.crmExport));
 
   const [data, setData] = useState<PageResponse<CrmHistoryResponse> | null>(null);
+  const [amountSummary, setAmountSummary] = useState<CrmHistoryAmountSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [regions, setRegions] = useState<RegionResponse[]>([]);
   const [townships, setTownships] = useState<TownshipResponse[]>([]);
@@ -69,6 +79,10 @@ export default function CrmHistoryListPage() {
   const [actionType, setActionType] = useState(searchParams.get('actionType') || 'all');
   const [inviteStatus, setInviteStatus] = useState(searchParams.get('inviteStatus') || 'all');
   const [phone, setPhone] = useState(searchParams.get('phone') || '');
+  const [createdBy, setCreatedBy] = useState(searchParams.get('createdBy') || '');
+  const [fromDate, setFromDate] = useState(searchParams.get('fromDate') || '');
+  const [toDate, setToDate] = useState(searchParams.get('toDate') || '');
+  const [amountBucket, setAmountBucket] = useState(searchParams.get('amountBucket') || 'all');
   const [regionId, setRegionId] = useState(searchParams.get('regionId') || 'all');
   const [townshipId, setTownshipId] = useState(searchParams.get('townshipId') || 'all');
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '0'));
@@ -86,6 +100,10 @@ export default function CrmHistoryListPage() {
     if (actionType !== 'all') params.set('actionType', actionType);
     if (inviteStatus !== 'all') params.set('inviteStatus', inviteStatus);
     if (phone) params.set('phone', phone);
+    if (createdBy) params.set('createdBy', createdBy);
+    if (fromDate) params.set('fromDate', fromDate);
+    if (toDate) params.set('toDate', toDate);
+    if (amountBucket !== 'all') params.set('amountBucket', amountBucket);
     if (regionId !== 'all') params.set('regionId', regionId);
     if (townshipId !== 'all') params.set('townshipId', townshipId);
 
@@ -93,16 +111,24 @@ export default function CrmHistoryListPage() {
     if (branchId) params.set('branchId', branchId);
 
     try {
-      const { data: resp } = await api.get<ApiResponse<PageResponse<CrmHistoryResponse>>>(
-        `/crm-history?${params.toString()}`
-      );
+      const summaryParams = new URLSearchParams(params);
+      summaryParams.delete('amountBucket');
+      const [listResp, summaryResp] = await Promise.all([
+        api.get<ApiResponse<PageResponse<CrmHistoryResponse>>>(`/crm-history?${params.toString()}`),
+        api.get<ApiResponse<CrmHistoryAmountSummary>>(
+          `/crm-history/amount-summary?${summaryParams.toString()}`
+        ),
+      ]);
+      const resp = listResp.data;
       setData(resp.data);
+      setAmountSummary(summaryResp.data.data);
     } catch {
       setData(null);
+      setAmountSummary(null);
     } finally {
       setLoading(false);
     }
-  }, [page, size, search, actionType, inviteStatus, phone, regionId, townshipId, searchParams]);
+  }, [page, size, search, actionType, inviteStatus, phone, createdBy, fromDate, toDate, amountBucket, regionId, townshipId, searchParams]);
 
   useEffect(() => {
     api.get<ApiResponse<RegionResponse[]>>('/locations/regions').then(({ data }) => {
@@ -137,6 +163,10 @@ export default function CrmHistoryListPage() {
     setActionType('all');
     setInviteStatus('all');
     setPhone('');
+    setCreatedBy('');
+    setFromDate('');
+    setToDate('');
+    setAmountBucket('all');
     setRegionId('all');
     setTownshipId('all');
     setPage(0);
@@ -162,6 +192,10 @@ export default function CrmHistoryListPage() {
     if (actionType !== 'all') params.set('actionType', actionType);
     if (inviteStatus !== 'all') params.set('inviteStatus', inviteStatus);
     if (phone) params.set('phone', phone);
+    if (createdBy) params.set('createdBy', createdBy);
+    if (fromDate) params.set('fromDate', fromDate);
+    if (toDate) params.set('toDate', toDate);
+    if (amountBucket !== 'all') params.set('amountBucket', amountBucket);
     if (regionId !== 'all') params.set('regionId', regionId);
     if (townshipId !== 'all') params.set('townshipId', townshipId);
     const branchId = searchParams.get('branchId');
@@ -196,7 +230,7 @@ export default function CrmHistoryListPage() {
 
       <Card>
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-6">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Search</label>
               <Input
@@ -248,6 +282,39 @@ export default function CrmHistoryListPage() {
               />
             </div>
             <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Created By</label>
+              <Input
+                placeholder="ဖန်တီးသူ"
+                value={createdBy}
+                onChange={(e) => setCreatedBy(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Amount Range</label>
+              <Select value={amountBucket} onValueChange={setAmountBucket}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {AMOUNT_BUCKETS.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">From Date</label>
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">To Date</label>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
+            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Region</label>
               <Select value={regionId} onValueChange={setRegionId}>
                 <SelectTrigger>
@@ -296,6 +363,32 @@ export default function CrmHistoryListPage() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">ငွေကြေးအပိုင်း အရေအတွက်:</span>
+        {AMOUNT_BUCKETS.map((b) => {
+          const count = amountSummary ? amountSummary[b.key] : 0;
+          const active = amountBucket === b.value;
+          return (
+            <button
+              key={b.value}
+              type="button"
+              onClick={() => {
+                setAmountBucket(active ? 'all' : b.value);
+                setPage(0);
+              }}
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                active
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-[#e5e7eb] bg-white text-[#4b5563] hover:bg-[#f9fafb] dark:border-neutral-700 dark:bg-neutral-900'
+              )}
+            >
+              {b.label} <span className="font-semibold">({count.toLocaleString()})</span>
+            </button>
+          );
+        })}
+      </div>
+
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -343,13 +436,16 @@ export default function CrmHistoryListPage() {
                           {item.customerName}
                         </p>
                         <p className="mt-0.5 text-sm text-[#595959]">{item.phone}</p>
+                        <p className="mt-0.5 text-xs text-[#8c8c8c]">
+                          {item.birthday || '-'} · {item.regionName || '-'} / {item.townshipName || '-'}
+                        </p>
                       </div>
                       <p className="shrink-0 font-mono text-sm font-medium text-[#262626] dark:text-neutral-100">
                         {formatCurrency(item.amount)}
                       </p>
                     </div>
                     <div className="mt-2 flex items-center justify-between gap-2 text-xs text-[#8c8c8c]">
-                      <span className="truncate">{item.branchName}</span>
+                      <span className="truncate">{item.branchName} · {item.createdBy || '-'}</span>
                       <span className="shrink-0">{formatDateTime(item.createdAt)}</span>
                     </div>
                     {item.remark && (
@@ -405,10 +501,13 @@ export default function CrmHistoryListPage() {
                     <TableHead>No.</TableHead>
                     <TableHead>Customer Name</TableHead>
                     <TableHead>Phone</TableHead>
+                    <TableHead>DOB</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Invite</TableHead>
                     <TableHead>Branch</TableHead>
+                    <TableHead>Region/Township</TableHead>
+                    <TableHead>Created By</TableHead>
                     <TableHead>Remark</TableHead>
                     <TableHead>Created At</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -422,6 +521,7 @@ export default function CrmHistoryListPage() {
                       </TableCell>
                       <TableCell className="font-medium">{item.customerName}</TableCell>
                       <TableCell>{item.phone}</TableCell>
+                      <TableCell>{item.birthday || '-'}</TableCell>
                       <TableCell className="font-mono">{formatCurrency(item.amount)}</TableCell>
                       <TableCell>
                         <Badge
@@ -444,6 +544,10 @@ export default function CrmHistoryListPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm">{item.branchName}</TableCell>
+                      <TableCell className="text-sm">
+                        {(item.regionName || '-') + ' / ' + (item.townshipName || '-')}
+                      </TableCell>
+                      <TableCell className="text-sm">{item.createdBy || '-'}</TableCell>
                       <TableCell className="max-w-[200px] truncate text-sm text-muted-foreground">
                         {item.remark || '-'}
                       </TableCell>
