@@ -6,6 +6,7 @@ public record StaffPerformanceRow(
         String staffKey,
         int totalTarget,
         int totalActual,
+        int totalUniquePhones,
         Map<String, BucketCounts> buckets
 ) {
 }

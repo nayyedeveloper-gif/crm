@@ -7,7 +7,8 @@ public record RegionPerformanceRow(
         Long regionId,
         String regionName,
         int totalActual,
-        Map<String, Integer> buckets,
+        int totalUniquePhones,
+        Map<String, BucketActual> buckets,
         List<TownshipPerformanceRow> townships
 ) {
 }

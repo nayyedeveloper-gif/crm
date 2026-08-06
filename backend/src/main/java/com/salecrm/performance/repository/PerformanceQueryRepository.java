@@ -1,11 +1,11 @@
 package com.salecrm.performance.repository;
 
+import com.salecrm.performance.dto.PerformanceFilter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.TypedQuery;
 import org.springframework.stereotype.Repository;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,53 +20,103 @@ public class PerformanceQueryRepository {
     @PersistenceContext
     private EntityManager entityManager;
 
-    public List<Object[]> findStaffAmounts(Long branchId, Instant fromTs, Instant toTs) {
+    /** [createdBy, amount, phone] */
+    public List<Object[]> findStaffAmounts(PerformanceFilter filter) {
         StringBuilder jpql = new StringBuilder("""
-                SELECT COALESCE(h.createdBy, 'Unknown'), h.amount
+                SELECT COALESCE(h.createdBy, 'Unknown'), h.amount, h.phone
                 FROM CrmHistory h
                 WHERE 1 = 1
                 """);
         Map<String, Object> params = new HashMap<>();
-        appendCommonFilters(jpql, params, branchId, fromTs, toTs);
+        appendFilters(jpql, params, filter);
 
         TypedQuery<Object[]> query = entityManager.createQuery(jpql.toString(), Object[].class);
         params.forEach(query::setParameter);
         return query.getResultList();
     }
 
-    public List<Object[]> findRegionAmounts(Long branchId, Instant fromTs, Instant toTs) {
+    /** [regionId, townshipId, amount, phone] */
+    public List<Object[]> findRegionAmounts(PerformanceFilter filter) {
         StringBuilder jpql = new StringBuilder("""
                 SELECT CASE WHEN h.region IS NULL THEN NULL ELSE h.region.id END,
                        CASE WHEN h.township IS NULL THEN NULL ELSE h.township.id END,
-                       h.amount
+                       h.amount,
+                       h.phone
                 FROM CrmHistory h
                 WHERE 1 = 1
                 """);
         Map<String, Object> params = new HashMap<>();
-        appendCommonFilters(jpql, params, branchId, fromTs, toTs);
+        appendFilters(jpql, params, filter);
 
         TypedQuery<Object[]> query = entityManager.createQuery(jpql.toString(), Object[].class);
         params.forEach(query::setParameter);
         return query.getResultList();
     }
 
-    private static void appendCommonFilters(
+    /** [createdBy, inviteStatus] — inviteStatus never null */
+    public List<Object[]> findStaffStatusCounts(PerformanceFilter filter) {
+        StringBuilder jpql = new StringBuilder("""
+                SELECT COALESCE(h.createdBy, 'Unknown'), h.inviteStatus
+                FROM CrmHistory h
+                WHERE h.inviteStatus IS NOT NULL
+                """);
+        Map<String, Object> params = new HashMap<>();
+        appendFilters(jpql, params, filter);
+
+        TypedQuery<Object[]> query = entityManager.createQuery(jpql.toString(), Object[].class);
+        params.forEach(query::setParameter);
+        return query.getResultList();
+    }
+
+    /** [inviteStatus, amount, phone] — inviteStatus never null */
+    public List<Object[]> findStatusBreakdownAmounts(PerformanceFilter filter) {
+        StringBuilder jpql = new StringBuilder("""
+                SELECT h.inviteStatus, h.amount, h.phone
+                FROM CrmHistory h
+                WHERE h.inviteStatus IS NOT NULL
+                """);
+        Map<String, Object> params = new HashMap<>();
+        appendFilters(jpql, params, filter);
+
+        TypedQuery<Object[]> query = entityManager.createQuery(jpql.toString(), Object[].class);
+        params.forEach(query::setParameter);
+        return query.getResultList();
+    }
+
+    private static void appendFilters(
             StringBuilder jpql,
             Map<String, Object> params,
-            Long branchId,
-            Instant fromTs,
-            Instant toTs) {
-        if (branchId != null) {
+            PerformanceFilter filter) {
+        if (filter == null) {
+            return;
+        }
+        if (filter.branchId() != null) {
             jpql.append(" AND h.branch.id = :branchId");
-            params.put("branchId", branchId);
+            params.put("branchId", filter.branchId());
         }
-        if (fromTs != null) {
+        if (filter.actionType() != null) {
+            jpql.append(" AND h.actionType = :actionType");
+            params.put("actionType", filter.actionType());
+        }
+        if (filter.inviteStatus() != null) {
+            jpql.append(" AND h.inviteStatus = :inviteStatus");
+            params.put("inviteStatus", filter.inviteStatus());
+        }
+        if (filter.regionId() != null) {
+            jpql.append(" AND h.region.id = :regionId");
+            params.put("regionId", filter.regionId());
+        }
+        if (filter.townshipId() != null) {
+            jpql.append(" AND h.township.id = :townshipId");
+            params.put("townshipId", filter.townshipId());
+        }
+        if (filter.from() != null) {
             jpql.append(" AND h.createdAt >= :fromTs");
-            params.put("fromTs", fromTs);
+            params.put("fromTs", filter.from());
         }
-        if (toTs != null) {
+        if (filter.to() != null) {
             jpql.append(" AND h.createdAt < :toTs");
-            params.put("toTs", toTs);
+            params.put("toTs", filter.to());
         }
     }
 }

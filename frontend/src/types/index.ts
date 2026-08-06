@@ -287,12 +287,19 @@ export interface BucketMeta {
 export interface BucketCounts {
   target: number;
   actual: number;
+  uniquePhones?: number;
+}
+
+export interface BucketActual {
+  count: number;
+  uniquePhones: number;
 }
 
 export interface StaffPerformanceRow {
   staffKey: string;
   totalTarget: number;
   totalActual: number;
+  totalUniquePhones?: number;
   buckets: Record<string, BucketCounts>;
 }
 
@@ -306,14 +313,16 @@ export interface TownshipPerformanceRow {
   townshipId: number | null;
   townshipName: string;
   totalActual: number;
-  buckets: Record<string, number>;
+  totalUniquePhones?: number;
+  buckets: Record<string, BucketActual | number>;
 }
 
 export interface RegionPerformanceRow {
   regionId: number | null;
   regionName: string;
   totalActual: number;
-  buckets: Record<string, number>;
+  totalUniquePhones?: number;
+  buckets: Record<string, BucketActual | number>;
   townships: TownshipPerformanceRow[];
 }
 
@@ -321,6 +330,32 @@ export interface RegionPerformanceResponse {
   bucketMeta: BucketMeta[];
   rows: RegionPerformanceRow[];
   totals: RegionPerformanceRow;
+}
+
+export interface StatusPerformanceRow {
+  staffKey: string;
+  total: number;
+  statuses: Record<string, number>;
+}
+
+export interface StatusPerformanceResponse {
+  statusCodes: string[];
+  rows: StatusPerformanceRow[];
+  totals: StatusPerformanceRow;
+}
+
+export interface StatusBreakdownRow {
+  statusCode: string;
+  statusLabel: string;
+  total: number;
+  totalUniquePhones: number;
+  buckets: Record<string, BucketActual>;
+}
+
+export interface StatusBreakdownResponse {
+  bucketMeta: BucketMeta[];
+  rows: StatusBreakdownRow[];
+  totals: StatusBreakdownRow;
 }
 
 export interface UserAdminResponse {
