@@ -1,8 +1,11 @@
 package com.salecrm.dashboard.controller;
 
 import com.salecrm.common.web.ApiResponse;
+import com.salecrm.dashboard.dto.BirthdayReportResponse;
+import com.salecrm.dashboard.dto.CrmCustomerListResponse;
 import com.salecrm.dashboard.dto.DashboardSummary;
 import com.salecrm.dashboard.dto.ReportSummary;
+import com.salecrm.dashboard.service.CrmCustomerService;
 import com.salecrm.dashboard.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,11 +27,35 @@ public class DashboardController {
     private static final ZoneId YANGON = ZoneId.of("Asia/Yangon");
 
     private final DashboardService dashboardService;
+    private final CrmCustomerService crmCustomerService;
 
     @GetMapping("/summary")
     @PreAuthorize("@perm.can('DASHBOARD_VIEW')")
     public ApiResponse<DashboardSummary> summary(@RequestParam(required = false) Long branchId) {
         return ApiResponse.ok(dashboardService.summary(branchId));
+    }
+
+    @GetMapping("/customers")
+    @PreAuthorize("@perm.can('DASHBOARD_VIEW')")
+    public ApiResponse<CrmCustomerListResponse> customers(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false, defaultValue = "all") String monthMode,
+            @RequestParam(required = false) String tier,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String amountBucket,
+            @RequestParam(required = false, defaultValue = "300") int limit) {
+        return ApiResponse.ok(crmCustomerService.customers(
+                branchId, monthMode, tier, search, amountBucket, limit));
+    }
+
+    @GetMapping("/birthday-report")
+    @PreAuthorize("@perm.can('DASHBOARD_VIEW')")
+    public ApiResponse<BirthdayReportResponse> birthdayReport(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false, defaultValue = "current") String monthMode,
+            @RequestParam(required = false) String tier,
+            @RequestParam(required = false) Integer week) {
+        return ApiResponse.ok(crmCustomerService.birthdayReport(branchId, monthMode, tier, week));
     }
 
     @GetMapping("/report")

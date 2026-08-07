@@ -69,12 +69,6 @@ public class CrmHistoryController {
         return ApiResponse.ok(crmHistoryService.list(filter, page, size));
     }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("@perm.can('CRM_VIEW')")
-    public ApiResponse<CrmHistoryResponse> getById(@PathVariable Long id) {
-        return ApiResponse.ok(crmHistoryService.getById(id));
-    }
-
     @GetMapping("/amount-summary")
     @PreAuthorize("@perm.can('CRM_VIEW')")
     public ApiResponse<CrmHistoryAmountSummary> amountSummary(
@@ -160,6 +154,12 @@ public class CrmHistoryController {
                 regionId, regionIdLegacy, townshipId, townshipIdLegacy);
         List<CrmHistoryResponse> data = excelExportService.listForExport(filter);
         excelExportService.export(data, response);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("@perm.can('CRM_VIEW')")
+    public ApiResponse<CrmHistoryResponse> getById(@PathVariable Long id) {
+        return ApiResponse.ok(crmHistoryService.getById(id));
     }
 
     private static CrmHistoryFilter buildFilter(

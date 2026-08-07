@@ -97,6 +97,61 @@ export interface CrmHistoryAmountSummary {
   amountOther: number;
 }
 
+export type CustomerTier = 'CIP' | 'VVIP' | 'VIP' | 'CARE';
+
+export interface CrmCustomerRow {
+  phone: string;
+  customerName: string;
+  tier: CustomerTier;
+  birthday: string | null;
+  age: number | null;
+  branchName: string | null;
+  branchId: number | null;
+  regionName: string | null;
+  regionId: number | null;
+  townshipName: string | null;
+  townshipId: number | null;
+  address: string | null;
+  createdBy: string | null;
+  totalAmount: number;
+  visits: number;
+  lastUpdate: string | null;
+}
+
+export interface CrmCustomerListResponse {
+  tierCounts: Record<string, number>;
+  totalCustomers: number;
+  totalPurchase: number;
+  totalVisits: number;
+  avgPerCustomer: number;
+  customers: CrmCustomerRow[];
+}
+
+export interface BirthdayWeekCard {
+  week: number;
+  label: string;
+  dayRange: string;
+  totalCustomers: number;
+  tierCounts: Record<string, number>;
+  ageCounts: Record<string, number>;
+}
+
+export interface BirthdayRegionCard {
+  regionId: number | null;
+  regionName: string;
+  totalCustomers: number;
+  tierCounts: Record<string, number>;
+  ageCounts: Record<string, number>;
+}
+
+export interface BirthdayReportResponse {
+  tierCounts: Record<string, number>;
+  totalBirthdays: number;
+  weeks: BirthdayWeekCard[];
+  regions: BirthdayRegionCard[];
+  birthdayToday: CrmCustomerRow[];
+}
+
 export interface RegionResponse {
   id: number;
   code: string;

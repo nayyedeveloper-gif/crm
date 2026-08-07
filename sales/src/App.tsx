@@ -311,14 +311,25 @@ export default function App() {
  ? new Date(status.latestSaleDate)
  : new Date();
 
+ // Default calendar month can be ahead of the latest sale month (e.g. Aug UI vs July data).
+ // Until the user picks a month, align the query to latestSaleDate.
+ let monthToUse = selectedMonth;
+ if (!monthTouched && !startDate && !endDate && status?.latestSaleDate) {
+ const statusMonth = latestBase.toLocaleString('en-US', { month: 'long' });
+ if (statusMonth && statusMonth !== selectedMonth) {
+ monthToUse = statusMonth;
+ setSelectedMonth(statusMonth);
+ }
+ }
+
  let from: string | undefined;
  let to: string | undefined;
 
  if (startDate || endDate) {
  from = startDate || undefined;
  to = endDate || undefined;
- } else if (selectedMonth !== 'All') {
- const monthIdx = MONTH_INDEX[selectedMonth];
+ } else if (monthToUse !== 'All') {
+ const monthIdx = MONTH_INDEX[monthToUse];
  if (monthIdx != null) {
  const year = latestBase.getFullYear();
  const start = new Date(year, monthIdx, 1);
@@ -332,6 +343,13 @@ export default function App() {
 
  const validData = rows as DataRow[];
  if (validData.length === 0) {
+ if (status && status.transactionCount > 0) {
+ throw new Error(
+ monthToUse && monthToUse !== 'All'
+ ? `No sales data for ${monthToUse}. Try another month or All.`
+ : 'No sales data for the selected filters.'
+ );
+ }
  throw new Error('No sales data in database yet. Ask an admin to import the CSV.');
  }
 
@@ -400,7 +418,7 @@ export default function App() {
  document.removeEventListener('visibilitychange', onVisible);
  channel?.close();
  };
- }, [isAuthenticated, highPerformanceMode, selectedMonth, startDate, endDate]);
+ }, [isAuthenticated, highPerformanceMode, selectedMonth, monthTouched, startDate, endDate]);
 
  const handleLoginRedirect = () => {
  window.location.href = CRM_LOGIN_PATH;

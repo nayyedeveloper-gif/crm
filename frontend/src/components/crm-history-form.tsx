@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import type {
   ApiResponse,
@@ -70,6 +70,7 @@ interface CrmHistoryFormProps {
 
 export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isEdit = !!recordId;
   const { user } = useAuthStore();
   const canBranchAll = usePermissionStore((s) => s.can(CRM_PERMISSION_KEYS.branchAll));
@@ -113,6 +114,18 @@ export function CrmHistoryForm({ recordId }: CrmHistoryFormProps) {
       setForm((prev) => ({ ...prev, branchId: user.branchId }));
     }
   }, [user, canBranchAll]);
+
+  useEffect(() => {
+    if (isEdit) return;
+    const phone = searchParams.get('phone');
+    const customerName = searchParams.get('customerName');
+    if (!phone && !customerName) return;
+    setForm((prev) => ({
+      ...prev,
+      phone: phone || prev.phone,
+      customerName: customerName || prev.customerName,
+    }));
+  }, [isEdit, searchParams]);
 
   useEffect(() => {
     if (!isEdit || !recordId) return;

@@ -547,7 +547,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/sales/detail')) return 'Sales — Detail';
     if (pathname.startsWith('/sales/data')) return 'Sales — Data';
     if (pathname.startsWith('/sales')) return 'Sales';
-    if (pathname.startsWith('/dashboard')) return 'Dashboard';
+    if (pathname.startsWith('/dashboard')) return 'CRM Dashboard';
     if (pathname.startsWith('/performance')) return 'CRM Staff Performance';
     if (pathname.startsWith('/report')) return 'Report';
     if (pathname.startsWith('/help')) return 'How to use';
@@ -988,8 +988,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main
           className={cn(
             'crm-app-main min-h-0 flex-1',
-            pathname.startsWith('/dashboard') ||
-              pathname.startsWith('/shop-dashboard') ||
+            pathname.startsWith('/shop-dashboard') ||
               pathname.startsWith('/report') ||
               pathname.startsWith('/settings') ||
               pathname.startsWith('/products') ||
